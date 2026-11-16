@@ -38,4 +38,4 @@ python herramientas/prueba_estres.py
 ```
 
 ## Publicación
-Cada cambio que se sube a `main` se publica solo en GitHub Pages (`.github/workflows/pages.yml`).
+GitHub Pages publica la rama `main` tal cual. El `index.html` de la raíz manda a `simulador/`. Cada cambio que se sube a `main` se publica solo.
