@@ -1,0 +1,11 @@
+# Repositorio PÚBLICO: solo se sube el simulador (lista blanca).
+# Fotos de la planta, video, docs internos y datos del manual NO se suben.
+*
+!.gitignore
+!README.md
+!.github/
+!.github/**
+!simulador/
+!simulador/**
+!herramientas/
+!herramientas/prueba_estres.py

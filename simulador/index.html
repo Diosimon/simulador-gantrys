@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>Simulador línea de pallets · 2 gantrys</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;600;700&family=Inter:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+
+</head>
+<body>
+<div class="wrap">
+<div class="haz"></div>
+<header><h1>SIMULADOR · LÍNEA DE PALLETS</h1><span class="tag">2 GANTRYS · 4 GRIPPERS</span></header>
+<div id="cvwrap"><canvas id="cv"></canvas><div id="toast"></div></div>
+<div class="legend">
+ <span><i class="sw" style="background:#c99459"></i>Pallet vacío</span>
+ <span><i class="sw" style="background:#b3bdc9"></i>Pieza sin procesar</span>
+ <span><i class="sw" style="background:#78d994"></i>Pieza procesada</span>
+</div>
+<div class="hint">Toca cualquier posición (bufers, alimentación, descarga) para cambiar lo que tiene. Toca un banco para ponerlo en falla.</div>
+<div class="bar">
+ <button id="play" class="on">⏸ Pausa</button>
+ <button id="step">Paso ›</button>
+ <div class="seg" id="spd"><button data-s="0.5">½×</button><button data-s="1" class="on">1×</button><button data-s="2">2×</button><button data-s="4">4×</button></div>
+ <button id="reset">Reiniciar</button>
+</div>
+<div class="bar">
+ <div class="seg" id="cam"><button data-c="all" class="on">Todo</button><button data-c="g1">Zona G1</button><button data-c="b2">Bufer 2</button><button data-c="g2">Zona G2</button></div>
+</div>
+<div class="bar">
+ <select id="scn">
+  <option value="normal">Escenario: Normal</option>
+  <option value="f1">Banco 1 en falla</option>
+  <option value="f2">Banco 2 en falla</option>
+  <option value="b1low">Bufer 1 casi vacío</option>
+  <option value="slow">Descarga lenta (operador tarda)</option>
+  <option value="pair">Regla rota en Bufer 2 (001 y 006)</option>
+ </select>
+ <button id="fb1" class="flt">Falla Banco 1</button>
+ <button id="fb2" class="flt">Falla Banco 2</button>
+</div>
+<div class="bar tiempos">
+ <span class="lbl">TIEMPOS (s)</span>
+ <label>Prueba en banco <input id="tProc" type="number" min="1" step="1" value="30"></label>
+ <label>Carga operador <input id="tLoad" type="number" min="1" step="1" value="5"></label>
+ <label>Descarga operador <input id="tUnload" type="number" min="1" step="1" value="5"></label>
+</div>
+<div class="bar tiempos">
+ <span class="lbl">LÍNEA EN HOME</span>
+ <label>Pallets en Bufer 2 <input id="nB2" type="number" min="0" max="4" step="1" value="4"></label>
+ <span class="lbl" id="palTot"></span>
+ <label>Sentido <select id="sentido"><option value="izq">Bufer 1 a la izquierda → Descarga a la derecha</option><option value="der">Bufer 1 a la derecha → Descarga a la izquierda</option></select></label>
+</div>
+<div class="bar tiempos">
+ <span class="lbl">VELOCIDAD GANTRYS (%)</span>
+ <label>Viaje en Y <input id="vY" type="number" min="10" max="400" step="10" value="100"></label>
+ <label>Brazo en X <input id="vX" type="number" min="10" max="400" step="10" value="100"></label>
+ <label>Sube/baja Z <input id="vZ" type="number" min="10" max="400" step="10" value="100"></label>
+</div>
+
+<div class="card"><h3>AHORA</h3>
+ <div class="now">
+  <span class="pill" style="background:var(--or)">G1</span><div><div class="act" id="g1a">—</div><div class="rule" id="g1r"></div></div>
+  <span class="pill" style="background:var(--bl)">G2</span><div><div class="act" id="g2a">—</div><div class="rule" id="g2r"></div></div>
+ </div>
+ <div id="warn"></div>
+</div>
+<div class="card"><h3>PRODUCCIÓN</h3>
+ <div class="stats">
+  <div class="stat"><b id="sDone">0</b><span>Piezas descargadas</span></div>
+  <div class="stat"><b id="sLoad">0</b><span>Piezas cargadas</span></div>
+  <div class="stat"><b id="sRate">0.0</b><span>Piezas / min</span></div>
+  <div class="stat"><b id="sTime">00:00</b><span>Tiempo simulado</span></div>
+ </div>
+</div>
+<div class="card"><h3>BITÁCORA</h3><div id="log"></div></div>
+<div class="card"><details><summary>REGLAS QUE USA EL SIMULADOR</summary>
+<ul>
+ <li><b>Ejes:</b> Y a lo largo de la línea; Z sube y baja; X entra al bufer. Los 2 brazos de cada gantry viajan juntos en Y; cada brazo se mueve solo en X y Z.</li>
+ <li><b>G1</b> (A, B): Bufer 1, Alimentación, Banco 1 y Bufer 2. <b>G2</b> (C, D): Bufer 2, Banco 2 y Descarga. Solo un gantry a la vez dentro del Bufer 2.</li>
+ <li><b>Línea en home (25 pallets):</b> Bufer 1 lleno (15), 4 en el Bufer 2 (uno por nivel 1–4), alimentación con pieza, 1 en cada banco, 1 en descarga y 1 en un gripper de cada gantry.</li>
+ <li><b>Todo es intercambio:</b> en cada lugar un gripper saca y el otro deja.</li>
+ <li><b>Bufer 1</b> (5 niveles × 3, siempre lleno): entran A (vertical) y B (en L); uno saca y el otro deja en la misma posición.</li>
+ <li><b>Bufer 2</b> (5 niveles × 2): columna izquierda 001–005 → A y D en vertical; columna derecha 006–010 → B y C en L. Un solo pallet por nivel.</li>
+ <li><b>Bufer 2 niveles 1–4:</b> G1 deja 2 piezas nuevas listas para G2 y se lleva vacíos (intercambio en el mismo nivel). Aquí también se hace el <b>cambio de gripper</b>.</li>
+ <li><b>Bufer 2 nivel 5:</b> solo traspaleo: G1 deja la pieza probada y G2 la lleva a descarga.</li>
+ <li><b>G1:</b> Banco 1 terminó → cambio rápido (un brazo trae la nueva, el otro saca la probada al nivel 5 y aprovecha para traer un vacío) → intercambio en alimentación (toma pieza nueva, deja el vacío) → la pieza va al Banco 1, al Bufer 2 o al Bufer 1.</li>
+ <li><b>G2:</b> Banco 2 terminó → cambio rápido con una pieza del Bufer 2 → descarga → el vacío regresa al Bufer 2 y se lleva la pieza probada del nivel 5 o una nueva.</li>
+ <li><b>Descarga</b> (2 espacios, siempre 1 pallet): G2 toma el vacío de un espacio y deja la pieza probada en el otro.</li>
+ <li><b>Operadores:</b> en alimentación cargan una pieza en el pallet vacío; en descarga quitan la pieza procesada.</li>
+</ul></details></div>
+<div class="haz" style="margin-top:10px"></div>
+</div>
+
+<script src="js/config.js"></script>
+<script src="js/world.js"></script>
+<script src="js/motion.js"></script>
+<script src="js/rules.js"></script>
+<script src="js/render.js"></script>
+<script src="js/ui.js"></script>
+
+</body>
+</html>

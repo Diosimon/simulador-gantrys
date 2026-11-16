@@ -1,0 +1,919 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>Simulador línea de pallets · 2 gantrys</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;600;700&family=Inter:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#23262b;--panel:#2c3036;--line:#3a3f47;--txt:#e8e9eb;--mut:#a3a9b2;--or:#f08a3d;--ye:#f5c542;--gr:#78d994;--bl:#548cff;--re:#ee4d47}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--txt);font-family:Inter,system-ui,sans-serif;font-size:14px}
+.haz{height:14px;background:repeating-linear-gradient(-45deg,var(--or) 0 12px,#18191b 12px 24px)}
+header{padding:10px 14px 6px;display:flex;align-items:center;gap:10px}
+header h1{font-family:Oswald,sans-serif;font-size:22px;margin:0;letter-spacing:.5px}
+.tag{background:var(--ye);color:#1d1d1f;font-family:Oswald;font-weight:600;padding:2px 8px;border-radius:5px;font-size:13px}
+.wrap{max-width:900px;margin:0 auto}
+#cvwrap{position:relative}
+canvas{display:block;width:100%;touch-action:manipulation}
+#toast{position:absolute;left:50%;top:10px;transform:translateX(-50%);background:#111;color:#fff;padding:6px 12px;border-radius:8px;font-size:13px;opacity:0;transition:opacity .2s;pointer-events:none;max-width:90%;text-align:center}
+.bar{display:flex;flex-wrap:wrap;gap:6px;padding:8px 10px;align-items:center}
+.tiempos{gap:10px;font-family:Oswald,sans-serif;font-size:14px}
+.tiempos .lbl{opacity:.7;letter-spacing:.05em}
+.tiempos label{display:flex;align-items:center;gap:6px}
+.tiempos input{width:64px;font-family:Oswald,sans-serif;font-size:15px;background:var(--panel);color:var(--txt);border:1px solid var(--line);border-radius:8px;padding:6px 8px}
+button,select{font-family:Oswald,sans-serif;font-size:15px;background:var(--panel);color:var(--txt);border:1px solid var(--line);border-radius:8px;padding:7px 11px;cursor:pointer}
+button.on{background:var(--or);color:#1d1d1f;border-color:var(--or)}
+button.flt.on{background:var(--re);border-color:var(--re);color:#fff}
+.seg{display:flex;gap:0}
+.seg button{border-radius:0;margin-left:-1px}
+.seg button:first-child{border-radius:8px 0 0 8px}.seg button:last-child{border-radius:0 8px 8px 0}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:10px;margin:8px 10px;padding:10px 12px}
+.card h3{font-family:Oswald;margin:0 0 6px;font-size:16px;letter-spacing:.3px;color:var(--ye)}
+.now{display:grid;grid-template-columns:auto 1fr;gap:4px 10px;align-items:start}
+.pill{font-family:Oswald;font-weight:700;padding:1px 8px;border-radius:5px;color:#1d1d1f}
+.rule{color:var(--mut);font-size:13px}
+.act{font-weight:600}
+.stats{display:flex;gap:8px;flex-wrap:wrap}
+.stat{flex:1;min-width:90px;background:#24272c;border-radius:8px;padding:6px 8px}
+.stat b{font-family:Oswald;font-size:22px;display:block}
+.stat span{color:var(--mut);font-size:12px}
+#log{max-height:220px;overflow:auto;font-size:13px;line-height:1.45}
+#log div{border-bottom:1px solid #33373e;padding:3px 0}
+#log .t{color:var(--mut);font-family:Oswald;margin-right:6px}
+#warn{color:var(--re);font-weight:600;display:none;margin-top:6px}
+details summary{cursor:pointer;font-family:Oswald;font-size:16px;color:var(--ye)}
+details li{margin:4px 0;color:#d4d7db}
+.legend{display:flex;gap:14px;flex-wrap:wrap;color:var(--mut);font-size:13px;padding:0 12px}
+.sw{display:inline-block;width:12px;height:12px;border-radius:3px;margin-right:5px;vertical-align:-1px}
+.hint{color:var(--mut);font-size:12.5px;padding:0 12px 4px}
+
+</style>
+
+</head>
+<body>
+<div class="wrap">
+<div class="haz"></div>
+<header><h1>SIMULADOR · LÍNEA DE PALLETS</h1><span class="tag">2 GANTRYS · 4 GRIPPERS</span></header>
+<div id="cvwrap"><canvas id="cv"></canvas><div id="toast"></div></div>
+<div class="legend">
+ <span><i class="sw" style="background:#c99459"></i>Pallet vacío</span>
+ <span><i class="sw" style="background:#b3bdc9"></i>Pieza sin procesar</span>
+ <span><i class="sw" style="background:#78d994"></i>Pieza procesada</span>
+</div>
+<div class="hint">Toca cualquier posición (bufers, alimentación, descarga) para cambiar lo que tiene. Toca un banco para ponerlo en falla.</div>
+<div class="bar">
+ <button id="play" class="on">⏸ Pausa</button>
+ <button id="step">Paso ›</button>
+ <div class="seg" id="spd"><button data-s="0.5">½×</button><button data-s="1" class="on">1×</button><button data-s="2">2×</button><button data-s="4">4×</button></div>
+ <button id="reset">Reiniciar</button>
+</div>
+<div class="bar">
+ <div class="seg" id="cam"><button data-c="all" class="on">Todo</button><button data-c="g1">Zona G1</button><button data-c="b2">Bufer 2</button><button data-c="g2">Zona G2</button></div>
+</div>
+<div class="bar">
+ <select id="scn">
+  <option value="normal">Escenario: Normal</option>
+  <option value="f1">Banco 1 en falla</option>
+  <option value="f2">Banco 2 en falla</option>
+  <option value="b1low">Bufer 1 casi vacío</option>
+  <option value="slow">Descarga lenta (operador tarda)</option>
+  <option value="pair">Regla rota en Bufer 2 (001 y 006)</option>
+ </select>
+ <button id="fb1" class="flt">Falla Banco 1</button>
+ <button id="fb2" class="flt">Falla Banco 2</button>
+</div>
+<div class="bar tiempos">
+ <span class="lbl">TIEMPOS (s)</span>
+ <label>Prueba en banco <input id="tProc" type="number" min="1" step="1" value="30"></label>
+ <label>Carga operador <input id="tLoad" type="number" min="1" step="1" value="5"></label>
+ <label>Descarga operador <input id="tUnload" type="number" min="1" step="1" value="5"></label>
+</div>
+<div class="bar tiempos">
+ <span class="lbl">LÍNEA EN HOME</span>
+ <label>Pallets en Bufer 2 <input id="nB2" type="number" min="0" max="4" step="1" value="4"></label>
+ <span class="lbl" id="palTot"></span>
+ <label>Sentido <select id="sentido"><option value="izq">Bufer 1 a la izquierda → Descarga a la derecha</option><option value="der">Bufer 1 a la derecha → Descarga a la izquierda</option></select></label>
+</div>
+<div class="bar tiempos">
+ <span class="lbl">VELOCIDAD GANTRYS (%)</span>
+ <label>Viaje en Y <input id="vY" type="number" min="10" max="400" step="10" value="100"></label>
+ <label>Brazo en X <input id="vX" type="number" min="10" max="400" step="10" value="100"></label>
+ <label>Sube/baja Z <input id="vZ" type="number" min="10" max="400" step="10" value="100"></label>
+</div>
+
+<div class="card"><h3>AHORA</h3>
+ <div class="now">
+  <span class="pill" style="background:var(--or)">G1</span><div><div class="act" id="g1a">—</div><div class="rule" id="g1r"></div></div>
+  <span class="pill" style="background:var(--bl)">G2</span><div><div class="act" id="g2a">—</div><div class="rule" id="g2r"></div></div>
+ </div>
+ <div id="warn"></div>
+</div>
+<div class="card"><h3>PRODUCCIÓN</h3>
+ <div class="stats">
+  <div class="stat"><b id="sDone">0</b><span>Piezas descargadas</span></div>
+  <div class="stat"><b id="sLoad">0</b><span>Piezas cargadas</span></div>
+  <div class="stat"><b id="sRate">0.0</b><span>Piezas / min</span></div>
+  <div class="stat"><b id="sTime">00:00</b><span>Tiempo simulado</span></div>
+ </div>
+</div>
+<div class="card"><h3>BITÁCORA</h3><div id="log"></div></div>
+<div class="card"><details><summary>REGLAS QUE USA EL SIMULADOR</summary>
+<ul>
+ <li><b>Ejes:</b> Y a lo largo de la línea; Z sube y baja; X entra al bufer. Los 2 brazos de cada gantry viajan juntos en Y; cada brazo se mueve solo en X y Z.</li>
+ <li><b>G1</b> (A, B): Bufer 1, Alimentación, Banco 1 y Bufer 2. <b>G2</b> (C, D): Bufer 2, Banco 2 y Descarga. Solo un gantry a la vez dentro del Bufer 2.</li>
+ <li><b>Línea en home (25 pallets):</b> Bufer 1 lleno (15), 4 en el Bufer 2 (uno por nivel 1–4), alimentación con pieza, 1 en cada banco, 1 en descarga y 1 en un gripper de cada gantry.</li>
+ <li><b>Todo es intercambio:</b> en cada lugar un gripper saca y el otro deja.</li>
+ <li><b>Bufer 1</b> (5 niveles × 3, siempre lleno): entran A (vertical) y B (en L); uno saca y el otro deja en la misma posición.</li>
+ <li><b>Bufer 2</b> (5 niveles × 2): columna izquierda 001–005 → A y D en vertical; columna derecha 006–010 → B y C en L. Un solo pallet por nivel.</li>
+ <li><b>Bufer 2 niveles 1–4:</b> G1 deja 2 piezas nuevas listas para G2 y se lleva vacíos (intercambio en el mismo nivel). Aquí también se hace el <b>cambio de gripper</b>.</li>
+ <li><b>Bufer 2 nivel 5:</b> solo traspaleo: G1 deja la pieza probada y G2 la lleva a descarga.</li>
+ <li><b>G1:</b> Banco 1 terminó → cambio rápido (un brazo trae la nueva, el otro saca la probada al nivel 5 y aprovecha para traer un vacío) → intercambio en alimentación (toma pieza nueva, deja el vacío) → la pieza va al Banco 1, al Bufer 2 o al Bufer 1.</li>
+ <li><b>G2:</b> Banco 2 terminó → cambio rápido con una pieza del Bufer 2 → descarga → el vacío regresa al Bufer 2 y se lleva la pieza probada del nivel 5 o una nueva.</li>
+ <li><b>Descarga</b> (2 espacios, siempre 1 pallet): G2 toma el vacío de un espacio y deja la pieza probada en el otro.</li>
+ <li><b>Operadores:</b> en alimentación cargan una pieza en el pallet vacío; en descarga quitan la pieza procesada.</li>
+</ul></details></div>
+<div class="haz" style="margin-top:10px"></div>
+</div>
+
+<script>
+// config.js — Constantes: tiempos, colores, geometría de ejes. Cambia aquí tiempos de proceso y dimensiones.
+// Se carga como script clásico (sin módulos) para que funcione abriendo index.html directo.
+
+// ===== constants =====
+const C = {or:[.94,.54,.24], bl:[.33,.55,1], ye:[.96,.77,.26], gr:[.47,.85,.58], re:[.93,.30,.28], wood:[.80,.58,.35],
+  raw:[.70,.74,.80], frame:[.80,.82,.85], dark:[.12,.12,.13]};
+let curScn=null;
+function setTiempo(id,v){const e=document.getElementById(id); if(e) e.value=v;}
+function leerTiempos(){
+  const n=(id,def)=>{const e=document.getElementById(id); const v=e?parseFloat(e.value):NaN; return v>0?v:def;};
+  PROC=n('tProc',PROC); LOAD=n('tLoad',LOAD); UNLOAD=n('tUnload',UNLOAD);
+}
+let PROC=30, LOAD=5, UNLOAD=5;
+// Velocidades de los gantrys (unidades/s). Base = valores al 100 %; la barra VELOCIDAD las ajusta en %.
+const VEL_BASE={y:2.6,x:1.3,z:1.6}; let VEL={...VEL_BASE};
+function leerVelocidad(){
+  const n=id=>{const e=document.getElementById(id); const v=e?parseFloat(e.value):NaN; return v>0?v/100:1;};
+  VEL={y:VEL_BASE.y*n('vY'),x:VEL_BASE.x*n('vX'),z:VEL_BASE.z*n('vZ')};
+}
+let ESPEJO=false;   // true = la línea empieza a la derecha (Bufer 1) y termina a la izquierda (Descarga)
+let B2_STOCK=2;   // piezas nuevas que G1 deja listas en el Bufer 2 para el Banco 2   // segundos; se cambian desde la barra TIEMPOS de la pantalla
+const REST=3.25, GH=0.47;
+const LV=n=>0.30+(5-n)*0.56;
+const LANE={A:-1.05,B:1.05,C:1.05,D:-1.05};
+const SAFE={G1:6.2,G2:10.0};
+
+</script>
+<script>
+// world.js — Modelo del mundo: posiciones (slots), pallets, gantrys, escenarios y bitácora.
+// Se carga como script clásico (sin módulos) para que funcione abriendo index.html directo.
+
+// ===== world =====
+let S={}, pid=0, simT=0, stats, logArr=[], lockOwner=null, G={};
+function mkSlot(id,kind,x,y,z,o={}){S[id]=Object.assign({id,kind,x,y,z,pallet:null,res:null,timer:0,prog:0,fault:false},o);}
+function pal(piece){return {id:++pid,piece,claimed:false};}
+function build(){
+  S={}; pid=0;
+  for(let p=0;p<3;p++)for(let n=1;n<=5;n++){const num=p*5+n; mkSlot('B1-'+String(num).padStart(2,'0'),'B1',0,0.5+p,LV(n),{level:n,col:p,label:String(num).padStart(2,'0')});}
+  for(let n=1;n<=5;n++){
+    mkSlot('B2-'+String(n).padStart(3,'0'),'B2',0,7.75,LV(n),{level:n,col:'L',label:String(n).padStart(3,'0')});
+    mkSlot('B2-'+String(n+5).padStart(3,'0'),'B2',0,8.45,LV(n),{level:n,col:'R',label:String(n+5).padStart(3,'0')});
+  }
+  mkSlot('ALIM','ALIM',0,4.3,0.80,{label:'ALIMENTACIÓN'});
+  mkSlot('BK1','BK',0,6.2,1.0,{label:'BANCO 1'});
+  mkSlot('BK2','BK',0,10.0,1.0,{label:'BANCO 2'});
+  mkSlot('D1','DESC',0,11.8,0.7,{label:'1'});
+  mkSlot('D2','DESC',0,12.6,0.7,{label:'2'});
+}
+const B1=()=>Object.values(S).filter(s=>s.kind==='B1');
+const B2=()=>Object.values(S).filter(s=>s.kind==='B2');
+const pairOf=s=>S['B2-'+String(s.col==='L'?s.level+5:s.level).padStart(3,'0')];
+const pairFree=n=>{const a=S['B2-'+String(n).padStart(3,'0')],b=S['B2-'+String(n+5).padStart(3,'0')];return !a.pallet&&!b.pallet&&!a.res&&!b.res;};
+const colOf=arm=>(arm==='A'||arm==='D')?'L':'R';
+const b2slot=(n,col)=>S['B2-'+String(col==='L'?n:n+5).padStart(3,'0')];
+function b2Free(arm){for(const n of [4,3,2,1]) if(pairFree(n)) return b2slot(n,colOf(arm)); return null;}
+function avail(s,piece){return s.pallet&&!s.pallet.claimed&&s.pallet.piece===piece;}
+
+class Gantry{
+  constructor(name,col,arms,gy){this.name=name;this.col=col;this.arms=arms;this.v={gy};arms.forEach(a=>{this.v[a+'.x']=LANE[a];this.v[a+'.z']=REST;});
+    this.hold={};arms.forEach(a=>this.hold[a]=null);this.q=[];this.cur=null;this.el=0;this.rule='Esperando…';this.txt='Sin tarea';this.wait=0;}
+  get front(){return this.arms[1];} get back(){return this.arms[0];}
+}
+function initScenario(sc){
+  build(); simT=0; lockOwner=null; logArr=[]; stats={done:0,load:0};
+  // Tiempos desde la barra TIEMPOS (si no existe, quedan los de config.js). «Descarga lenta» fuerza 28 s.
+  if(sc==='slow') setTiempo('tUnload',28); else if(curScn==='slow') setTiempo('tUnload',5);
+  curScn=sc; leerTiempos(); leerVelocidad();
+  const b1=B1().sort((a,b)=>a.level-b.level||a.col-b.col);
+  const nB1=sc==='b1low'?3:15;
+  // Bufer 1 siempre lleno: 15 pallets; los que no traen pieza son vacíos.
+  b1.forEach((s,i)=>{ s.pallet=pal(i>=15-nB1?'raw':'none'); });
+  S.ALIM.pallet=pal('raw');
+  S.BK1.pallet=pal('raw'); S.BK1.prog=0.45;
+  S.BK2.pallet=pal('raw'); S.BK2.prog=0.75;
+  S.D2.pallet=pal('none');
+  if(sc==='f1') S.BK1.fault=true;
+  if(sc==='f2') S.BK2.fault=true;
+  if(sc==='pair'){S['B2-001'].pallet=pal('none');S['B2-006'].pallet=pal('raw');}
+  // Bufer 2 en home: N pallets (barra LÍNEA), uno por nivel, alternando pieza nueva (izq) y vacío (der).
+  else { const e=document.getElementById('nB2'); const n=e?Math.max(0,Math.min(4,parseInt(e.value)||0)):4;
+    for(let lv=1;lv<=n;lv++) S[b2slot(lv,lv%2?'L':'R').id].pallet=pal(lv%2?'raw':'none'); }
+  G.G1=new Gantry('G1',C.or,['A','B'],5.2);
+  G.G2=new Gantry('G2',C.bl,['D','C'],10.6);
+  // Línea real: cada gantry anda siempre con un pallet en un gripper (21 pallets en total:
+  // 15 Bufer 1 + alimentación + 2 bancos + descarga + 1 en cada gantry).
+  G.G1.hold.A=pal('none'); G.G2.hold.C=pal('none');
+  log('Inicio: escenario «'+document.getElementById('scn').selectedOptions[0].text.replace('Escenario: ','')+'».');
+  syncFaultBtns();
+}
+
+// ===== logging =====
+function fmt(t){const m=Math.floor(t/60),s=Math.floor(t%60);return String(m).padStart(2,'0')+':'+String(s).padStart(2,'0');}
+function log(m){logArr.unshift([simT,m]); if(logArr.length>60)logArr.pop(); renderLog();}
+function renderLog(){document.getElementById('log').innerHTML=logArr.map(([t,m])=>`<div><span class="t">${fmt(t)}</span>${m}</div>`).join('');}
+let toastT=0;function toast(m){const e=document.getElementById('toast');e.textContent=m;e.style.opacity=1;clearTimeout(toastT);toastT=setTimeout(()=>e.style.opacity=0,1800);}
+
+</script>
+<script>
+// motion.js — Movimientos: secuencias en L / vertical y el ejecutor de acciones de cada gantry.
+// Se carga como script clásico (sin módulos) para que funcione abriendo index.html directo.
+
+// ===== motion macros =====
+const name=s=>s.kind==='B1'?`Bufer 1 pos ${s.label} (nivel ${s.level})`:s.kind==='B2'?`Bufer 2 pos ${s.label} (nivel ${s.level})`:s.kind==='DESC'?`Descarga espacio ${s.label}`:s.label.charAt(0)+s.label.slice(1).toLowerCase();
+const mv=(to,txt)=>({t:'mv',to,txt});
+// En L: B en el Bufer 1, y B/C en la columna derecha del Bufer 2. A/D siempre vertical.
+function isL(arm,s){return (arm==='B'||arm==='C')&&(s.kind==='B1'||(s.kind==='B2'&&s.col==='R'));}
+function pick(g,arm,s,moveY=true){return (isL(arm,s)?seqL:seqV)(g,arm,s,'grab',moveY);}
+function place(g,arm,s,moveY=true){return (isL(arm,s)?seqL:seqV)(g,arm,s,'rel',moveY);}
+function seqL(g,arm,s,op,moveY){
+  const verb=op==='grab'?'toma':'deja';
+  return [mv({gy:s.y},`${g.name} viaja en Y a ${name(s)}`),
+    mv({[arm+'.z']:s.z+GH+(op==='grab'?0.05:0.09)},`${arm} baja en Z al nivel ${s.level}`),
+    mv({[arm+'.x']:s.x},`${arm} entra en X (movimiento en L)`),
+    mv({[arm+'.z']:s.z+GH},`${arm} se asienta`),
+    {t:op,arm,s,txt:`${arm} ${verb} el pallet en ${name(s)}`},
+    ...(op==='grab'?[mv({[arm+'.z']:s.z+GH+0.08},`${arm} levanta el pallet`)]:[]),
+    mv({[arm+'.x']:LANE[arm]},`${arm} sale en X`),
+    mv({[arm+'.z']:REST},`${arm} sube en Z`)];
+}
+function seqV(g,arm,s,op,moveY){
+  const verb=op==='grab'?'toma':'deja';
+  return [...(moveY?[mv({gy:s.y},`${g.name} viaja en Y a ${name(s)}`)]:[]),
+    mv({[arm+'.x']:s.x},`${arm} se alinea en X`),
+    mv({[arm+'.z']:s.z+GH},`${arm} baja en Z (vertical)`),
+    {t:op,arm,s,txt:`${arm} ${verb} el pallet en ${name(s)}`},
+    mv({[arm+'.z']:REST},`${arm} sube en Z`),
+    mv({[arm+'.x']:LANE[arm]},`${arm} regresa a su carril`)];
+}
+const lock=g=>({t:'lock',txt:`${g.name} espera que se libere el Bufer 2`});
+const unlock=g=>[mv({gy:SAFE[g.name]},`${g.name} sale del Bufer 2`),{t:'unlock'}];
+const waitFor=(fn,txt,then)=>({t:'waitfor',fn,txt,then});
+function claim(s){if(s.pallet)s.pallet.claimed=true;}
+function reserve(s){s.res=true;}
+
+// ===== executor =====
+let actionDone=false;
+function startAction(g,a){
+  g.cur=a; g.el=0; g.txt=a.txt||g.txt;
+  if(a.t==='mv'){ g.frm={...g.v}; let d=0;
+    for(const k in a.to){const r=k==='gy'?VEL.y:(k.endsWith('.x')?VEL.x:VEL.z); d=Math.max(d,Math.abs(a.to[k]-g.frm[k])/r);}
+    g.dur=d>0.001?0.15+d:0; }
+  else if(a.t==='grab'||a.t==='rel'){g.dur=0.35;g.ev=false;}
+  else g.dur=0;
+}
+function stepGantry(g,dt){
+  let guard=0;
+  while(dt>0 && guard++<50){
+    if(!g.cur){
+      if(!g.q.length){
+        g.wait-=dt; if(g.wait>0) return; g.wait=0.25;
+        const d=(g.name==='G1'?decideG1:decideG2)(g);
+        if(d){g.q=d.q; g.rule=d.rule; log(`<b>${g.name}</b>: ${d.rule}`);}
+        else { const home=g.name==='G1'?5.2:10.6; if(Math.abs(g.v.gy-home)>0.05 && !Object.values(g.hold).some(x=>x)){g.q=[mv({gy:home},`${g.name} regresa a su posición de espera`)];g.rule='Sin tarea pendiente.';} else {g.txt='Esperando tarea';g.rule='Sin tarea pendiente.';return;} }
+      }
+      const a=g.q.shift();
+      if(a.t==='dyn'){g.q.unshift(...a.fn());continue;}
+      startAction(g,a);
+    }
+    const a=g.cur;
+    if(a.t==='lock'){ if(lockOwner===null||lockOwner===g.name){lockOwner=g.name;g.cur=null;continue;} g.txt=a.txt; return; }
+    if(a.t==='call'){ a.fn(); g.cur=null; continue; }
+    if(a.t==='unlock'){ if(lockOwner===g.name)lockOwner=null; g.cur=null; continue; }
+    if(a.t==='waitfor'){ if(a.fn()){ if(a.then)a.then(); g.cur=null; continue; } g.txt=a.txt; return; }
+    const use=Math.min(dt,Math.max(0,g.dur-g.el)); g.el+=use; dt-=use;
+    const k=g.dur>0?Math.min(1,g.el/g.dur):1;
+    if(a.t==='mv'){const e=k*k*(3-2*k); for(const key in a.to) g.v[key]=g.frm[key]+(a.to[key]-g.frm[key])*e;}
+    if((a.t==='grab'||a.t==='rel')&&k>=0.5&&!g.ev){ g.ev=true;
+      if(a.t==='grab'){const p=a.s.pallet; if(!p){log(`<span style="color:#ee4d47">${g.name}: no encontró pallet en ${name(a.s)} (se movió a mano).</span>`); } else {p.claimed=false;g.hold[a.arm]=p;a.s.pallet=null;a.s.res=null;}}
+      else {const p=g.hold[a.arm]; g.hold[a.arm]=null; if(p){ if(a.s.pallet){log(`<span style="color:#ee4d47">${g.name}: ${name(a.s)} ocupada, regresa el pallet.</span>`); g.hold[a.arm]=p; } else {a.s.pallet=p;a.s.res=null;a.s.timer=0; if(a.s.kind==='BK'&&p.piece==='raw'){a.s.prog=0;}}}}
+    }
+    if(g.el>=g.dur-1e-9){ g.cur=null; if(g.dur>0) actionDone=true; }
+  }
+}
+function stepWorld(dt){
+  simT+=dt;
+  for(const s of [S.BK1,S.BK2]){ const p=s.pallet;
+    if(p&&p.piece==='raw'&&!s.fault&&!p.claimed){ s.prog+=dt/PROC; if(s.prog>=1){s.prog=1;p.piece='done';log(`${s.label.charAt(0)+s.label.slice(1).toLowerCase()} terminó la pieza.`);} } }
+  // control: cuánto tiempo seguido queda alimentación sin pallet (debe ser solo el instante del intercambio)
+  if(!S.ALIM.pallet){ S.ALIM.vac=(S.ALIM.vac||0)+dt; stats.alimVac=Math.max(stats.alimVac||0,S.ALIM.vac); } else S.ALIM.vac=0;
+  const a=S.ALIM.pallet; if(a&&a.piece==='none'&&!a.claimed){S.ALIM.timer+=dt; if(S.ALIM.timer>=LOAD){a.piece='raw';S.ALIM.timer=0;stats.load++;log('Operador cargó pieza nueva en alimentación.');}} else if(!a||a.piece!=='none') S.ALIM.timer=0;
+  for(const s of [S.D1,S.D2]){const p=s.pallet; if(p&&p.piece==='done'&&!p.claimed){s.timer+=dt; if(s.timer>=UNLOAD){p.piece='none';s.timer=0;stats.done++;log(`Operador descargó la pieza en descarga espacio ${s.label}.`);}} else s.timer=0;}
+  stepGantry(G.G1,dt); stepGantry(G.G2,dt);
+}
+
+</script>
+<script>
+// rules.js — LÓGICA DE DECISIÓN de G1 y G2 (prioridades). Es el archivo principal para ajustar el comportamiento.
+// Se carga como script clásico (sin módulos) para que funcione abriendo index.html directo.
+//
+// Patrón de la secuencia real de la línea: TODO es intercambio. En cada lugar un brazo saca y el otro deja,
+// y el gantry "aprovecha el viaje": si pasa por el Bufer 2 con un brazo libre, toma un vacío para alimentación
+// (G1) o una pieza para descarga / Banco 2 (G2). Los pasos marcados {t:'dyn'} se deciden al llegar ahí.
+
+// ===== utilidades =====
+const otherG1=a=>a==='A'?'B':'A';
+const otherG2=a=>a==='D'?'C':'D';
+const armG2=s=>s.col==='L'?'D':'C';
+const b1With=piece=>B1().filter(s=>avail(s,piece)).sort((a,b)=>b.level-a.level||a.col-b.col)[0]||null;
+const emptyB2In=col=>B2().find(s=>s.level<=4&&s.col===col&&avail(s,'none'))||null;
+const emptyB2forG1=()=>B2().find(s=>s.level<=4&&avail(s,'none'))||null;
+const alimFree=()=>!S.ALIM.pallet&&!S.ALIM.res;
+const holding=g=>Object.values(g.hold).some(x=>x);
+function bkNeedsPiece(bk){ if(bk.fault) return false; const p=bk.pallet; if(bk.res) return false; return !p || p.piece!=='raw'; }
+const bk1CanTake=()=>!S.BK1.fault&&!S.BK1.pallet&&!S.BK1.res;
+// Nivel 5 = traspaleo en los dos sentidos (punto de entrega entre gantrys): G1 deja la probada y saca el vacío que dejó G2; G2 saca la probada y deja un vacío.
+const lv5=col=>b2slot(5,col);
+// ¿Puede el brazo `o` de G1 dejar una probada en el nivel 5? Su columna libre, y la otra libre o con un vacío que el otro brazo (si está libre) saca antes.
+function lvl5Accepts(o,raFree){ const d=lv5(colOf(o)), e=lv5(colOf(o)==='L'?'R':'L');
+  return !d.pallet&&!d.res&&((!e.pallet&&!e.res)||(raFree&&avail(e,'none'))); }
+const bk1Done=()=>{const p=S.BK1.pallet;return !!(p&&!p.claimed&&p.piece==='done');};
+const bk1DoneReady=()=>bk1Done()&&(lvl5Accepts('A',true)||lvl5Accepts('B',true));
+// Bufer 2 = punto de entrega G1→G2 (punto de entrega entre gantrys): G1 mantiene ahí B2_STOCK piezas nuevas LISTAS para el
+// Banco 2, así G2 nunca espera a G1. Cuenta las del Bufer 2 (niveles 1–4) y las que G2 ya trae en la mano.
+function bk2WantsRaw(){
+  if(S.BK2.fault) return false;
+  const b2raw=B2().filter(s=>s.level<=4&&s.pallet&&s.pallet.piece==='raw').length;
+  const g2raw=Object.values(G.G2.hold).filter(x=>x&&x.piece==='raw').length;
+  return b2raw+g2raw < B2_STOCK;
+}
+// ¿Tiene a dónde ir una pieza nueva que G1 traiga en el brazo `arm`?
+const g1RawHasDest=arm=>bk1CanTake()||(!S.BK1.fault&&!!bk1DoneReady())||(bk2WantsRaw()&&(!!b2Free(arm)||b2CanSwap(arm,s=>s.pallet.piece==='none')||b2CanSwap(otherG1(arm),s=>s.pallet.piece==='none')))||!!b1With('none');
+
+// ---- Intercambio en el Bufer 2: los dos brazos en el MISMO NIVEL, uno en cada columna.
+// El brazo libre `o` saca un pallet de su columna y el brazo `put` deja el que trae en ese nivel, en su columna.
+// Así nunca hay dos pallets en el mismo nivel y no hace falta que haya un nivel libre.
+function b2SwapWith(g,put,want){
+  const o=g.name==='G1'?otherG1(put):otherG2(put);
+  if(!g.hold[put]||g.hold[o]) return null;
+  const take=B2().filter(s=>s.level<=4&&s.col===colOf(o)&&s.pallet&&!s.pallet.claimed&&!s.res&&want(s)).sort((a,b)=>b.level-a.level)[0];
+  if(!take) return null;
+  const dest=b2slot(take.level,colOf(put)); if(dest.pallet||dest.res) return null;
+  return {o,take,dest};
+}
+// Igual que b2SwapWith pero solo pregunta (sin revisar qué traen los brazos hoy).
+function b2CanSwap(put,want){
+  const oc=colOf(put)==='L'?'R':'L';
+  return B2().some(s=>s.level<=4&&s.col===oc&&s.pallet&&!s.pallet.claimed&&!s.res&&want(s)&&(d=>!d.pallet&&!d.res)(b2slot(s.level,colOf(put))));
+}
+function b2SwapQ(g,put,sw){ claim(sw.take); reserve(sw.dest);
+  return [lock(g),...pick(g,sw.o,sw.take),...place(g,put,sw.dest),...unlock(g)]; }
+// ¿Algún banco espera pieza que alimentación no tiene lista, y hay piezas en el Bufer 1? (→ usar el vacío para sacar una)
+const g1NeedsB1Raw=()=>!avail(S.ALIM,'raw')&&!!b1With('raw')&&(bk1CanTake()||bk2WantsRaw());
+
+// ---- Bufer 1: SIEMPRE lleno (15 pallets, con pieza o vacíos). Toda visita es un INTERCAMBIO en la misma
+// posición: un brazo saca el pallet y el otro deja el que trae. B entra en L, A en vertical.
+// Plan para que G1 quede con una pieza sin procesar en la mano: {arm, src, q()} o null.
+// arm = brazo que queda con la pieza. q() marca (claim) los pallets y devuelve las acciones.
+function planRawG1(g){
+  // (alimentación NO: ahí solo se toma la pieza por intercambio, trayendo un vacío → ver g1EmptyOut)
+  const r=b1With('raw'); if(!r) return null;
+  const e=emptyB2forG1(); if(!e) return null;
+  const ea=e.col==='L'?'A':'B', ra=otherG1(ea);   // ea trae el vacío, ra saca la pieza
+  return {arm:ra,src:'B1',r,e,q:()=>{claim(r);claim(e);
+    return [lock(g),...pick(g,ea,e),...unlock(g),...pick(g,ra,r),...place(g,ea,r,false)];}};
+}
+const srcTxt=pl=>pl.src==='ALIM'?'de alimentación':'del Bufer 1, por intercambio con un vacío del Bufer 2';
+
+// ===== G1: pasos dinámicos =====
+// Dentro del Bufer 2 (con candado): si el brazo `fa` quedó libre, toma un vacío de su columna para alimentación.
+function g1TakeEmptyAtB2(g,fa){ return {t:'dyn',fn:()=>{
+  if(g.hold[fa]) return [];
+  const e=emptyB2In(colOf(fa)); if(!e) return [];
+  const forB1=g1NeedsB1Raw();
+  // G1 siempre se lleva un vacío: en alimentación solo puede tomar la pieza si deja un vacío a cambio
+  claim(e); log(`G1: aprovecha el viaje → ${fa} toma el pallet vacío del Bufer 2 pos ${e.label} ${forB1?'para sacar una pieza del Bufer 1':'para alimentación'}.`);
+  return pick(g,fa,e);
+}}; }
+// Acomoda lo que G1 traiga en las manos.
+function g1Continue(g){ return {t:'dyn',fn:()=>{
+  for(const a of g.arms){ const p=g.hold[a]; if(!p) continue;
+    if(p.piece==='none') return g1EmptyOut(g,a);
+    if(p.piece==='raw') return g1RawOut(g,a);
+  }
+  for(const a of g.arms){ const p=g.hold[a]; if(p&&p.piece==='done') return g1DoneOut(g,a); }
+  return [];
+}}; }
+// G1 trae un vacío en `ea`. Prioridad:
+//  1) alimentación con pieza lista → intercambio ahí (toma la nueva, deja el vacío);
+//  2) Banco 1 terminó y no hay pieza nueva → intercambio en el banco (saca la probada, deja el vacío) y la probada al nivel 5;
+//  3) un banco espera pieza y alimentación no la tiene → intercambio en el Bufer 1 (deja el vacío, saca una pieza);
+//  4) alimentación libre → deja el vacío para que el operador cargue.
+function g1EmptyOut(g,ea){
+  const oa=otherG1(ea), bk=S.BK1;
+  if(avail(S.ALIM,'raw') && !g.hold[oa] && g1RawHasDest(oa)){ claim(S.ALIM);
+    log(`G1: intercambio en alimentación → ${oa} toma la pieza nueva y ${ea} deja el vacío.`);
+    return [...pick(g,oa,S.ALIM),{t:'call',fn:()=>reserve(S.ALIM)},...place(g,ea,S.ALIM,false),g1Continue(g)]; }
+  if(!bk.fault && !g.hold[oa] && bk1Done() && !avail(S.ALIM,'raw') && lvl5Accepts(oa,true)){ claim(bk); reserve(bk);
+    log(`G1: Banco 1 terminó y no hay pieza nueva → ${oa} saca la probada y ${ea} deja el vacío en el banco.`);
+    return [mv({gy:bk.y},`${g.name} viaja en Y al Banco 1`),...pick(g,oa,bk,false),...place(g,ea,bk,false),...g1Lvl5(g,oa)]; }
+  if(!g.hold[oa] && g1NeedsB1Raw()){ const r=b1With('raw'); claim(r);
+    log(`G1: un banco espera pieza y alimentación no está lista → intercambio en Bufer 1 pos ${r.label}: ${oa} saca la pieza y ${ea} deja el vacío.`);
+    return [...pick(g,oa,r),...place(g,ea,r,false),g1Continue(g)]; }
+  if(alimFree()){ reserve(S.ALIM); return place(g,ea,S.ALIM); }
+  const d=b2Free(ea); if(d){ reserve(d); return [lock(g),...place(g,ea,d),...unlock(g)]; }
+  return [waitFor(()=>alimFree()||avail(S.ALIM,'raw')||b2Free(ea)||(!bk.fault&&!g.hold[oa]&&bk1Done()&&lvl5Accepts(oa,true)),`${ea} espera dónde dejar el pallet vacío`,null),{t:'dyn',fn:()=>g1EmptyOut(g,ea)}];
+}
+// Traspaleo en el nivel 5: `o` trae la probada. Si G2 dejó un vacío en el nivel 5, el otro brazo lo saca primero
+// y `o` deja la probada en ese mismo nivel, en su columna. Después, si conviene, cambia el vacío de gripper (niveles 1–4).
+function g1Lvl5(g,o){
+  const ra=otherG1(o), d=lv5(colOf(o)), e=lv5(colOf(ra)); reserve(d);
+  const take=avail(e,'none')&&!g.hold[ra]; if(take) claim(e);
+  return [lock(g),...(take?pick(g,ra,e):[]),...place(g,o,d),take?g1FixEmptyArm(g,ra):g1TakeEmptyAtB2(g,ra),...unlock(g),g1Continue(g)];
+}
+// Cambio de gripper en el Bufer 2 (niveles 1–4): el vacío que sacó `ea` del nivel 5 pasa al otro brazo,
+// para que `ea` quede libre y tome la próxima pieza nueva (así el ciclo se repite con los mismos brazos).
+function g1FixEmptyArm(g,ea){ return {t:'dyn',fn:()=>{
+  const o=otherG1(ea); if(!g.hold[ea]||g.hold[o]) return [];
+  const sw=b2SwapWith(g,ea,s=>s.pallet.piece==='none'); if(!sw) return [];
+  claim(sw.take); reserve(sw.dest);
+  log(`G1: cambio de gripper en Bufer 2 nivel ${sw.take.level} → ${o} toma un vacío y ${ea} deja el suyo.`);
+  return [...pick(g,o,sw.take),...place(g,ea,sw.dest)];
+}}; }
+// Cambio rápido en Banco 1 cuando `ra` ya trae la pieza nueva: el otro brazo saca la probada y la lleva al nivel 5.
+function g1BankSwap(g,ra){
+  const o=otherG1(ra), bk=S.BK1;
+  claim(bk); reserve(bk);
+  return [mv({gy:bk.y},`${g.name} viaja en Y al Banco 1`),...pick(g,o,bk,false),...place(g,ra,bk,false),...g1Lvl5(g,o)];
+}
+// G1 trae una probada en `a` (p. ej. después de un intercambio en el banco): al nivel 5.
+function g1DoneOut(g,a){
+  const o=otherG1(a);
+  if(lvl5Accepts(a,!g.hold[o])) return g1Lvl5(g,a);
+  return [waitFor(()=>lvl5Accepts(a,!g.hold[o]),`${a} espera lugar en el nivel 5 del Bufer 2`,null),{t:'dyn',fn:()=>g1DoneOut(g,a)}];
+}
+// G1 trae una pieza nueva en `ra`: Banco 1 → Bufer 2 (piezas listas para G2) → Bufer 1 (intercambio con un vacío).
+function g1RawOut(g,ra){
+  const o=otherG1(ra), bk=S.BK1;
+  if(bk1CanTake()){ reserve(bk); return place(g,ra,bk); }
+  if(!bk.fault && !g.hold[o] && bk1Done()){
+    if(lvl5Accepts(o,true)){ log(`G1: Banco 1 terminó → cambio rápido con la pieza que trae ${ra}.`); return g1BankSwap(g,ra); }
+    // la probada quedaría en la columna equivocada del nivel 5 → cambio de gripper de la pieza nueva (niveles 1–4)
+    const sw=lvl5Accepts(ra,true)?b2SwapWith(g,ra,s=>s.pallet.piece==='raw'):null;
+    if(sw){ log(`G1: cambio de gripper en Bufer 2 nivel ${sw.take.level} → ${sw.o} toma una pieza nueva y ${ra} deja la suya (para el cambio rápido en Banco 1).`);
+      return [...b2SwapQ(g,ra,sw),g1Continue(g)]; }
+    const r1=lvl5Accepts(ra,true)?b1With('raw'):null;   // respaldo: el cambio se hace en el Bufer 1
+    if(r1){ claim(r1); log(`G1: cambio de gripper en Bufer 1 pos ${r1.label} → ${o} toma una pieza y ${ra} deja la suya (para el cambio rápido en Banco 1).`);
+      return [...pick(g,o,r1),...place(g,ra,r1,false),g1Continue(g)]; }
+  }
+  if(bk2WantsRaw()){
+    const sw=b2SwapWith(g,ra,s=>s.pallet.piece==='none');
+    if(sw){ log(`G1: intercambio en Bufer 2 nivel ${sw.take.level} → ${sw.o} saca el vacío y ${ra} deja la pieza nueva para el Banco 2.`);
+      return [...b2SwapQ(g,ra,sw),g1Continue(g)]; }
+    const d=b2Free(ra); if(d){ reserve(d);
+    log(`G1: Banco 2 necesita pieza → ${ra} la deja en el Bufer 2 pos ${d.label}.`);
+    return [lock(g),...place(g,ra,d),g1TakeEmptyAtB2(g,ra),...unlock(g),g1Continue(g)]; }
+    // vacíos solo en la columna de `ra` → cambio de gripper (toma una pieza con el otro brazo) para poder intercambiar
+    const ch=b2CanSwap(o,s=>s.pallet.piece==='none')?b2SwapWith(g,ra,s=>s.pallet.piece==='raw'):null;
+    if(ch){ log(`G1: cambio de gripper en Bufer 2 nivel ${ch.take.level} → ${ch.o} toma una pieza y ${ra} deja la suya.`);
+      return [...b2SwapQ(g,ra,ch),g1Continue(g)]; }
+    const r1=!g.hold[o]&&b2CanSwap(o,s=>s.pallet.piece==='none')?b1With('raw'):null;
+    if(r1){ claim(r1); log(`G1: cambio de gripper en Bufer 1 pos ${r1.label} → ${o} toma una pieza y ${ra} deja la suya (en el Bufer 2 no se pudo).`);
+      return [...pick(g,o,r1),...place(g,ra,r1,false),g1Continue(g)]; }
+  }
+  const f=!g.hold[o]?b1With('none'):null;
+  if(f){ claim(f); log(`G1: el Bufer 1 acumula → ${ra} deja la pieza en pos ${f.label} y ${o} saca el vacío.`);
+    return [...pick(g,o,f),...place(g,ra,f,false),g1Continue(g)]; }
+  return [waitFor(()=>bk1CanTake()||(!bk.fault&&!g.hold[o]&&bk1Done()&&(lvl5Accepts(o,true)||(lvl5Accepts(ra,true)&&(b2SwapWith(g,ra,s=>s.pallet.piece==='raw')||b1With('raw')))))||(bk2WantsRaw()&&(b2Free(ra)||b2SwapWith(g,ra,s=>s.pallet.piece==='none')||b2SwapWith(g,ra,s=>s.pallet.piece==='raw')||(!g.hold[o]&&b2CanSwap(o,s=>s.pallet.piece==='none')&&b1With('raw'))))||(!g.hold[o]&&b1With('none')),
+    `${ra} espera con pieza nueva (Banco 1, Bufer 2 o Bufer 1)`,null),{t:'dyn',fn:()=>g1RawOut(g,ra)}];
+}
+
+// ¿De dónde saca G1 un vacío para llevar a alimentación? Banco 1 (pallet vacío) → nivel 5 → niveles 1–4 del Bufer 2.
+function g1EmptySource(){
+  const bk=S.BK1;
+  if(!bk.fault&&!bk.res&&avail(bk,'none')) return {s:bk,arm:'A',txt:'del Banco 1'};
+  for(const c of ['L','R']){ const s=lv5(c); if(avail(s,'none')) return {s,arm:c==='L'?'A':'B',b2:true,txt:`del Bufer 2 pos ${s.label} (nivel 5)`}; }
+  const e=emptyB2forG1(); if(e) return {s:e,arm:e.col==='L'?'A':'B',b2:true,txt:`del Bufer 2 pos ${e.label}`};
+  return null;
+}
+function decideG1(g){
+  if(holding(g)) return {rule:'G1 trae un pallet en la mano → lo acomoda.',q:[g1Continue(g)]};
+  const bk=S.BK1, p=bk.pallet;
+  // 0: en alimentación SIEMPRE es intercambio (toma la pieza, deja un vacío) → si G1 no trae vacío, primero va por uno
+  const ap=S.ALIM.pallet;
+  if(ap&&!ap.claimed){ const src=g1EmptySource();
+    if(src&&(src.s===bk||g1RawHasDest(otherG1(src.arm))||bk1Done())){ claim(src.s);
+      return {rule:`Para tomar la pieza de alimentación hay que dejar un vacío → ${src.arm} toma un pallet vacío ${src.txt}.`,
+        q:[...(src.b2?[lock(g),...pick(g,src.arm,src.s),...unlock(g)]:pick(g,src.arm,src.s)),g1Continue(g)]}; } }
+  // 1: Banco 1 terminó y nivel 5 libre → cambio rápido; la probada va al nivel 5 y el brazo libre trae un vacío
+  if(bk1DoneReady()){
+    const pl=!bk.fault?planRawG1(g):null;
+    if(pl){ let ra=pl.arm;
+      if(pl.src==='ALIM'&&!lvl5Accepts(otherG1(ra),true)) ra=otherG1(ra);   // alimentación: toma la pieza el brazo que deja bien el nivel 5
+      if(lvl5Accepts(otherG1(ra),true)){ const o=otherG1(ra);
+        const q=pl.src==='ALIM'?(claim(S.ALIM),pick(g,ra,S.ALIM)):pl.q();
+        return {rule:`Banco 1 terminó y hay pieza nueva ${srcTxt(pl)} → CAMBIO RÁPIDO: ${ra} trae la nueva y ${o} saca la probada al nivel 5 (traspaleo); ${ra} saca el vacío que dejó G2.`,
+          q:[...q,...g1BankSwap(g,ra)]}; }
+    }
+    const o=['A','B'].find(x=>lvl5Accepts(x,true)); claim(bk);
+    return {rule:`Banco 1 terminó (no hay pieza nueva lista) → ${o} saca la probada al nivel 5 del Bufer 2 (traspaleo).`,
+      q:[...pick(g,o,bk),...g1Lvl5(g,o)]};
+  }
+  // 2: Banco 1 con pallet vacío
+  if(p && !p.claimed && p.piece==='none'){
+    const r=!bk.fault?b1With('raw'):null;
+    if(r){ claim(bk); claim(r); reserve(bk);
+      return {rule:`Banco 1 tiene pallet vacío → A lo lleva al Bufer 1 pos ${r.label}: B saca la pieza, A deja el vacío y B carga el banco.`,
+        q:[...pick(g,'A',bk),...pick(g,'B',r),...place(g,'A',r,false),...place(g,'B',bk)]};
+    }
+    if(alimFree()){ claim(bk); reserve(S.ALIM); return {rule:'Banco 1 tiene pallet vacío → A lo regresa a alimentación.',q:[...pick(g,'A',bk),...place(g,'A',S.ALIM)]}; }
+    const d=b2Free('A'); if(d){ claim(bk); reserve(d); return {rule:'Banco 1 tiene pallet vacío → A lo sube al Bufer 2.',q:[...pick(g,'A',bk),lock(g),...place(g,'A',d),...unlock(g)]}; }
+  }
+  // 3: Banco 1 vacío → cargarlo
+  if(!p && !bk.res && !bk.fault){ const pl=planRawG1(g);
+    if(pl){ reserve(bk);
+      return {rule:`Banco 1 vacío → ${pl.arm} lo carga con pieza sin procesar ${srcTxt(pl)}.`,q:[...pl.q(),...place(g,pl.arm,bk)]};} }
+  // 4: Banco 1 ocupado y Banco 2 necesita pieza → mandarla al Bufer 2 y traer un vacío de regreso
+  if(bk2WantsRaw()){
+    const pl=planRawG1(g);
+    if(pl){ // si sale del Bufer 1, el vacío que se tomó del Bufer 2 deja libre su nivel: la pieza va ahí
+      let d=pl.src==='ALIM'?b2Free(pl.arm):b2slot(pl.e.level,colOf(pl.arm));
+      if(d&&(d.pallet||d.res)) d=null;
+      if(d){ const q=pl.q(); reserve(d);
+        return {rule:`Banco 1 ocupado y Banco 2 necesita pieza → ${pl.arm} manda una sin procesar ${srcTxt(pl)} al Bufer 2 (${colOf(pl.arm)==='R'?'columna derecha, en L':'columna izquierda, vertical'}) y aprovecha para traer un vacío.`,
+          q:[...q,lock(g),...place(g,pl.arm,d),g1TakeEmptyAtB2(g,pl.arm),...unlock(g),g1Continue(g)]};}
+    }
+  }
+  // 6: Regresar vacío del Bufer 2 a alimentación
+  if(alimFree()){
+    const e=emptyB2forG1();
+    if(e){const arm=e.col==='L'?'A':'B'; claim(e);reserve(S.ALIM);
+      return {rule:`Hay pallet vacío en el Bufer 2 y alimentación libre → ${arm} lo regresa para cargar otra pieza.`,q:[lock(g),...pick(g,arm,e),...unlock(g),...place(g,arm,S.ALIM)]};}
+  }
+  return null;
+}
+
+// ===== G2: pasos dinámicos =====
+// Descarga: 2 espacios pero SIEMPRE un solo pallet. G2 toma el vacío de un espacio y deja la pieza en el otro.
+const dFreeSpot=()=>[S.D1,S.D2].find(s=>!s.pallet&&!s.res)||null;
+const dEmptySpot=()=>[S.D1,S.D2].find(s=>avail(s,'none'))||null;
+const dCount=()=>[S.D1,S.D2].filter(s=>s.pallet||s.res).length;
+const bk2Park=()=>(!S.BK2.pallet&&!S.BK2.res&&!S.BK2.fault)?S.BK2:null;
+// ¿Puede G2 recibir una pieza nueva? (Banco 2 libre, o con pallet listo para cambio rápido)
+const g2RawCanGo=()=>!S.BK2.fault&&!S.BK2.res&&(!S.BK2.pallet||(!S.BK2.pallet.claimed&&S.BK2.pallet.piece!=='raw'));
+// ¿Puede G2 entregar en descarga una pieza que trae en `arm`? (el otro brazo toma el vacío; la pieza va al otro espacio)
+const g2CanDeliver=arm=>!!dFreeSpot()&&((!!dEmptySpot()&&!G.G2.hold[otherG2(arm)])||dCount()===0);
+// Entrega en descarga. `parkOK` permite dejar el vacío en Banco 2 aunque hoy esté ocupado (G2 lo está vaciando en esta tarea).
+// Si el vacío no tiene a dónde ir, G2 se queda con él en un gripper. Reserva al decidir. Devuelve acciones o null.
+function g2Deliver(g,arm,parkOK){
+  const o=otherG2(arm), de=dEmptySpot(), df=dFreeSpot();
+  if(de && df && !g.hold[o]){ claim(de); reserve(df);
+    const q=[...pick(g,o,de),...place(g,arm,df)];
+    const dest=b2Free(o)||bk2Park()||(parkOK&&!S.BK2.fault?S.BK2:null);
+    if(dest){ reserve(dest);
+      if(dest===S.BK2) q.push(...place(g,o,S.BK2));
+      else q.push(lock(g),...place(g,o,dest),g2PickAtB2(g),...unlock(g),g2Continue(g)); }
+    else q.push(g2Continue(g));
+    return q; }
+  if(dCount()===0 && df){ reserve(df); return place(g,arm,df); }
+  return null;
+}
+// Dentro del Bufer 2 (con candado), con las manos libres: toma la pieza probada del nivel 5 (para descarga)
+// o una pieza nueva para el Banco 2 si está libre.
+function g2PickAtB2(g){ return {t:'dyn',fn:()=>{
+  const done=B2().find(s=>avail(s,'done'));
+  if(done){ const a=armG2(done); if(!g.hold[a]&&g2CanDeliver(a)){ claim(done);
+    log(`G2: aprovecha el viaje → ${a} toma la pieza probada del Bufer 2 pos ${done.label} para descarga.`); return pick(g,a,done);} }
+  const raw=B2().find(s=>s.level<=4&&avail(s,'raw'));
+  if(raw && bk2Park()){ const a=armG2(raw); if(!g.hold[a]){ claim(raw); reserve(S.BK2);
+    log(`G2: aprovecha el viaje → ${a} toma la pieza nueva del Bufer 2 pos ${raw.label} para el Banco 2.`); return pick(g,a,raw);} }
+  return [];
+}}; }
+// G2 con un vacío en `a`: ¿qué puede hacer? Devuelve acciones (y marca/reserva) o null. `dry` = solo preguntar.
+function g2EmptyOpts(g,a,dry){
+  const o=otherG2(a), free=!g.hold[o];
+  // 1) lugar libre en Bufer 2 o Banco 2 libre
+  const d=b2Free(a)||bk2Park();
+  if(d){ if(dry) return true; reserve(d);
+    return d===S.BK2?place(g,a,d):[lock(g),...place(g,a,d),g2PickAtB2(g),...unlock(g),g2Continue(g)]; }
+  // 2) traspaleo en nivel 5: `o` saca la probada del G1 y `a` deja el vacío en ese nivel, en su columna
+  const t=lv5(colOf(o)), tv=lv5(colOf(a));
+  if(free&&avail(t,'done')&&!tv.pallet&&!tv.res){ if(dry) return true; claim(t); reserve(tv);
+    log(`G2: traspaleo en nivel 5 → ${o} saca la pieza probada del G1 y ${a} deja el vacío.`);
+    return [lock(g),...pick(g,o,t),...place(g,a,tv),...unlock(g),g2Continue(g)]; }
+  // 3) intercambio en niveles 1–4: `o` saca una pieza nueva y `a` deja el vacío
+  const sw=g2RawCanGo()?b2SwapWith(g,a,s=>s.pallet.piece==='raw'):null;
+  if(sw){ if(dry) return true; log(`G2: intercambio en Bufer 2 nivel ${sw.take.level} → ${sw.o} saca la pieza nueva y ${a} deja el vacío.`);
+    return [...b2SwapQ(g,a,sw),g2Continue(g)]; }
+  // 4) Banco 2 terminó → `o` saca la probada y `a` deja el vacío en el banco
+  const bp=S.BK2.pallet;
+  if(free&&!S.BK2.fault&&!S.BK2.res&&bp&&!bp.claimed&&bp.piece==='done'){ if(dry) return true; claim(S.BK2); reserve(S.BK2);
+    log(`G2: Banco 2 terminó → ${o} saca la probada y ${a} deja el vacío en el banco.`);
+    return [mv({gy:S.BK2.y},'G2 viaja en Y al Banco 2'),...pick(g,o,S.BK2,false),...place(g,a,S.BK2,false),g2Continue(g)]; }
+  // 5) cambio de gripper en niveles 1–4: el vacío pasa al otro brazo si eso permite el traspaleo o tomar una pieza nueva
+  const needFlip=(avail(tv,'done')&&!t.pallet&&!t.res)||(g2RawCanGo()&&b2CanSwap(o,s=>s.pallet.piece==='raw'));
+  const ch=free&&needFlip?b2SwapWith(g,a,s=>s.pallet.piece==='none'):null;
+  if(ch){ if(dry) return true; log(`G2: cambio de gripper en Bufer 2 nivel ${ch.take.level} → ${ch.o} toma un vacío y ${a} deja el suyo.`);
+    return [...b2SwapQ(g,a,ch),g2Continue(g)]; }
+  // si en el Bufer 2 no se puede, el cambio se hace sobre el vacío de descarga o del Banco 2 (mismo lugar, sigue habiendo un pallet)
+  if(free&&needFlip){
+    const bkE=S.BK2.pallet&&!S.BK2.fault&&!S.BK2.res&&avail(S.BK2,'none')?S.BK2:null;
+    const sp=dEmptySpot()||bkE;
+    if(sp){ if(dry) return true; claim(sp);
+      log(`G2: cambio de gripper en ${sp===S.BK2?'Banco 2':'descarga '+sp.label} → ${o} toma ese vacío y ${a} deja el suyo en el mismo lugar.`);
+      return [...pick(g,o,sp),{t:'call',fn:()=>reserve(sp)},...place(g,a,sp,false),g2Continue(g)]; }
+  }
+  return dry?false:null;
+}
+// Acomoda lo que G2 traiga en las manos.
+function g2Continue(g){ return {t:'dyn',fn:()=>{
+  for(const a of g.arms){ const p=g.hold[a]; if(!p) continue;
+    if(p.piece==='done'){ const q=g2Deliver(g,a,false); if(q) return q;
+      return [waitFor(()=>g2CanDeliver(a),`${a} espera el vacío en descarga`,null),g2Continue(g)]; }
+    if(p.piece==='raw'){ if(S.BK2.res&&!S.BK2.pallet) return place(g,a,S.BK2);
+      const o=otherG2(a), bp=S.BK2.pallet;
+      if(!S.BK2.fault&&!g.hold[o]&&bp&&!bp.claimed&&bp.piece!=='raw'&&!S.BK2.res){ claim(S.BK2); reserve(S.BK2);
+        log(`G2: cambio rápido en Banco 2 → ${o} saca el pallet y ${a} mete la pieza nueva.`);
+        return [mv({gy:S.BK2.y},'G2 viaja en Y al Banco 2'),...pick(g,o,S.BK2,false),...place(g,a,S.BK2,false),g2Continue(g)]; }
+      if(bk2Park()){ reserve(S.BK2); return place(g,a,S.BK2); }
+      const d=b2Free(a); if(d){ reserve(d); return [lock(g),...place(g,a,d),...unlock(g)]; }
+      return [waitFor(()=>bk2Park()||b2Free(a)||(S.BK2.pallet&&!S.BK2.pallet.claimed&&S.BK2.pallet.piece!=='raw'&&!g.hold[otherG2(a)]),`${a} espera dónde dejar la pieza`,null),g2Continue(g)]; }
+    if(p.piece==='none'){ const q=g2EmptyOpts(g,a,false); if(q) return q;
+      return [waitFor(()=>g2EmptyOpts(g,a,true),`${a} espera con el vacío (Bufer 2 o Banco 2)`,null),g2Continue(g)]; }
+  }
+  return [];
+}}; }
+
+function decideG2(g){
+  if(holding(g)) return {rule:'G2 trae un pallet en la mano → lo acomoda.',q:[g2Continue(g)]};
+  const bk=S.BK2, p=bk.pallet;
+  const rawB2=B2().find(s=>s.level<=4&&avail(s,'raw'));
+  const doneB2=B2().find(s=>avail(s,'done'));
+  // 0: Descarga sin espacio libre, con vacío, y nada que entregar → retirar el vacío (y aprovechar el viaje al Bufer 2)
+  const de=dEmptySpot();
+  if(!dFreeSpot() && de && !(p&&p.piece==='done') && !doneB2){
+    for(const arm of ['D','C']){
+      const dest=b2Free(arm)||bk2Park();
+      if(dest){ claim(de); reserve(dest);
+        const q=[...pick(g,arm,de)];
+        if(dest===bk) q.push(...place(g,arm,bk)); else q.push(lock(g),...place(g,arm,dest),g2PickAtB2(g),...unlock(g),g2Continue(g));
+        return {rule:`Descarga sin espacio libre → ${arm} retira el pallet vacío y lo deja en ${dest===bk?'el Banco 2 (libre)':'el Bufer 2'}.`,q};
+      }
+    }
+  }
+  // 1: Banco 2 terminó
+  if(p && !p.claimed && p.piece==='done'){
+    if(rawB2 && !bk.fault){ const a=armG2(rawB2), o=otherG2(a);
+      if(g2CanDeliver(o)){ claim(bk); claim(rawB2); reserve(bk);
+        const head=[lock(g),...pick(g,a,rawB2),...unlock(g),mv({gy:bk.y},'G2 viaja en Y al Banco 2'),...pick(g,o,bk,false),...place(g,a,bk,false)];
+        const tail=g2Deliver(g,o,false);
+        return {rule:`Banco 2 terminó y hay pieza en Bufer 2 → CAMBIO RÁPIDO: ${a} trae la nueva y ${o} saca la probada; en descarga, ${a} toma el vacío de un espacio y ${o} deja la probada en el otro.`,
+          q:[...head,...tail]};}
+    }
+    if(g2CanDeliver('D')||(dEmptySpot()&&!bk.fault)){ claim(bk);
+      const tail=g2Deliver(g,'D',true);
+      if(tail) return {rule:'Banco 2 terminó → D saca la probada; en descarga C toma el vacío y D deja la probada (intercambio).',q:[...pick(g,'D',bk),...tail]};
+      p.claimed=false;
+    }
+  }
+  // 2: Banco 2 con pallet vacío o vacío
+  if(rawB2 && !bk.fault && !bk.res){
+    if(p && !p.claimed && p.piece==='none'){
+      const a=armG2(rawB2), o=otherG2(a), same=b2slot(rawB2.level,colOf(o));
+      const d=b2Free(o)||((!same.pallet&&!same.res)?same:null);   // si no hay nivel libre: el que deja la pieza nueva
+      if(d){ claim(rawB2); claim(bk); reserve(bk); reserve(d);
+        return {rule:`Banco 2 tiene pallet vacío → ${a} trae pieza sin procesar, ${o} saca el vacío y lo sube al Bufer 2.`,
+          q:[lock(g),...pick(g,a,rawB2),...unlock(g),mv({gy:bk.y},'G2 viaja en Y al Banco 2'),...pick(g,o,bk,false),...place(g,a,bk,false),lock(g),...place(g,o,d),g2PickAtB2(g),...unlock(g),g2Continue(g)]};}
+    }
+    if(!p){ const a=armG2(rawB2); claim(rawB2); reserve(bk);
+      return {rule:`Banco 2 vacío → ${a} trae la pieza sin procesar del Bufer 2.`,q:[lock(g),...pick(g,a,rawB2),...unlock(g),...place(g,a,bk)]};}
+  }
+  // 2b: Bufer 2 sin ningún nivel libre (1–4), lleno de vacíos, y G1 no puede dejar piezas → G2 saca un vacío al Banco 2 libre
+  if(bk2Park() && ![1,2,3,4].some(pairFree) && bk2WantsRaw() && !rawB2){
+    const e=B2().filter(s=>s.level<=4&&avail(s,'none')).sort((x,y)=>y.level-x.level)[0];
+    if(e){ const a=armG2(e); claim(e); reserve(bk);
+      return {rule:`Bufer 2 lleno de vacíos → ${a} estaciona uno en el Banco 2 para dejar lugar a una pieza nueva.`,q:[lock(g),...pick(g,a,e),...unlock(g),...place(g,a,bk)]}; }
+  }
+  // 3: Pieza probada en Bufer 2 (traspaleo) → descarga, con intercambio
+  if(doneB2){ const a=armG2(doneB2);
+    if(g2CanDeliver(a)){ claim(doneB2);
+      const head=[lock(g),...pick(g,a,doneB2),...unlock(g)];
+      const tail=g2Deliver(g,a,false);
+      return {rule:`Pieza probada en Bufer 2 pos ${doneB2.label} (traspaleo) → ${a} la lleva a descarga; ahí ${otherG2(a)} toma el vacío de un espacio y ${a} deja la pieza en el otro.`,q:[...head,...tail]};}
+  }
+  return null;
+}
+
+</script>
+<script>
+// render.js — Dibujo isométrico en canvas (proyección X/Y/Z, estaciones, gantrys, etiquetas).
+// Se carga como script clásico (sin módulos) para que funcione abriendo index.html directo.
+
+// ===== canvas =====
+const cv=document.getElementById('cv'), ctx=cv.getContext('2d');
+let CW=400,CH=420,DPR=1;
+function resize(){
+  CW=cv.parentElement.clientWidth; CH=Math.round(Math.min(CW*1.08, window.innerHeight*0.62)); if(CH<CW*0.75)CH=Math.round(CW*0.75);
+  DPR=window.devicePixelRatio||1; cv.width=CW*DPR; cv.height=CH*DPR; cv.style.height=CH+'px'; ctx.setTransform(DPR,0,0,DPR,0,0);
+}
+window.addEventListener('resize',resize); resize();
+
+const CAMS={all:{yc:6.4,kf:12.6},g1:{yc:3.6,kf:6.6},b2:{yc:8.1,kf:4.4},g2:{yc:11.0,kf:5.4}};
+let camKey='all', cam={yc:6.4,k:CW/12.6};
+function camTarget(){const c=CAMS[camKey]; return {yc:c.yc,k:CW/c.kf};}
+function P(x,y,z){
+  let u=(y-cam.yc)*0.88-x*0.50; if(ESPEJO) u=-u;   // espejo: Bufer 1 a la derecha, Descarga a la izquierda
+  const v=(y-cam.yc)*0.34+x*0.40-z*0.92;
+  const cy0=CH*0.50+cam.k*1.85;
+  return [CW/2+cam.k*u, cy0+cam.k*v];
+}
+const rgba=(c,a=1)=>`rgba(${c[0]*255|0},${c[1]*255|0},${c[2]*255|0},${a})`;
+const sh=(c,f)=>[c[0]*f,c[1]*f,c[2]*f];
+function poly(pts,col,a=1){ctx.beginPath();pts.forEach((p,i)=>{const s=P(...p);i?ctx.lineTo(s[0],s[1]):ctx.moveTo(s[0],s[1]);});ctx.closePath();ctx.fillStyle=rgba(col,a);ctx.fill();}
+function box(x0,x1,y0,y1,z0,z1,col,a=1){
+  poly([[x1,y0,z0],[x1,y1,z0],[x1,y1,z1],[x1,y0,z1]],sh(col,.80),a);
+  poly([[x0,y1,z0],[x1,y1,z0],[x1,y1,z1],[x0,y1,z1]],sh(col,.62),a);
+  poly([[x0,y0,z1],[x1,y0,z1],[x1,y1,z1],[x0,y1,z1]],col,a);
+}
+function line3(a,b,col,w,al=1){const p=P(...a),q=P(...b);ctx.beginPath();ctx.moveTo(p[0],p[1]);ctx.lineTo(q[0],q[1]);ctx.strokeStyle=rgba(col,al);ctx.lineWidth=w;ctx.stroke();}
+function rr(x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath();}
+function tag(sx,sy,s,bg,fg,size=12){
+  ctx.font=`600 ${size}px Oswald, sans-serif`; const w=ctx.measureText(s).width+12;
+  rr(sx-w/2,sy-size-2,w,size+7,4); ctx.fillStyle=bg; ctx.fill(); ctx.fillStyle=fg; ctx.textAlign='center'; ctx.fillText(s,sx,sy+1);
+}
+
+// ===== drawing =====
+function pallet3(x,y,z,piece,a=1){
+  box(x-.40,x+.40,y-.30,y+.30,z,z+.11,C.wood,a);
+  if(piece==='none')return;
+  const col=piece==='done'?C.gr:C.raw;
+  box(x-.26,x+.26,y-.20,y+.20,z+.11,z+.34,col,a);
+  box(x-.12,x+.12,y-.09,y+.09,z+.34,z+.40,sh(col,.75),a);
+}
+function floor(){
+  poly([[1.9,-0.8,0],[1.9,13.8,0],[-1.9,13.8,0],[-1.9,-0.8,0]],[.17,.18,.21]);
+  for(let y=0;y<14;y++) line3([1.9,y-.3,0],[-1.9,y-.3,0],[1,1,1],1,.05);
+  line3([1.75,-0.8,0],[1.75,13.8,0],C.ye,2,.6);
+}
+const POSTS=[-0.5,5.05,9.3,13.5];
+function rail(x,a){POSTS.forEach(py=>box(x-.07,x+.07,py-.07,py+.07,0,4,[.75,.77,.80],a)); box(x-.09,x+.09,-0.6,13.6,4,4.22,[.82,.84,.87],a);}
+function towerCol(slots,yc,half,first,last,y0,y1,kind){
+  const zt=2.95, x0=-.52,x1=.52;
+  if(first) box(x0-.03,x0+.03,y0-.03,y0+.03,0,zt,C.frame);
+  for(let n=5;n>=1;n--){
+    const s=slots.find(q=>q.level===n); const z=LV(n);
+    const hi=kind==='B2'&&n===5;
+    box(x0,x1,yc-half,yc+half,z-.04,z,hi?[.95,.62,.25]:[.55,.58,.63],.95);
+    if(s.pallet){ pallet3(s.x,s.y,s.z,s.pallet.piece);
+      if(kind==='B2'&&pairOf(s).pallet){ const a=P(.4,s.y-.3,s.z),b=P(.4,s.y+.3,s.z+.45); ctx.strokeStyle='#ee4d47';ctx.lineWidth=3;ctx.strokeRect(Math.min(a[0],b[0])-4,Math.min(a[1],b[1])-4,Math.abs(b[0]-a[0])+8,Math.abs(b[1]-a[1])+8);} }
+    if(s.res&&!s.pallet){ const q=P(.3,s.y,s.z+.2); ctx.fillStyle='rgba(245,197,66,.35)';ctx.beginPath();ctx.arc(q[0],q[1],Math.max(4,cam.k*.08),0,7);ctx.fill(); }
+    if(cam.k>CW/7.5){ const q=P(.55,s.y,s.z+.02); tag(q[0],q[1]+cam.k*.07,s.label,'rgba(20,22,25,.85)',hi?'#f5c542':'#cfd3d8',Math.max(9,Math.min(13,cam.k*.11))); }
+  }
+  box(x0,x1,yc-half,yc+half,zt-.05,zt,C.frame,.9);
+  if(last){ box(x1-.03,x1+.03,y0-.03,y0+.03,0,zt,C.ye); box(x1-.03,x1+.03,y1-.03,y1+.03,0,zt,C.ye); box(x0-.03,x0+.03,y1-.03,y1+.03,0,zt,C.frame); poly([[x1,y0,0],[x1,y1,0],[x1,y1,zt],[x1,y0,zt]],[.6,.75,.9],.06);}
+}
+function banco(s){
+  const yc=s.y, p=s.pallet, working=p&&p.piece==='raw'&&!s.fault;
+  box(-.6,.6,yc-.6,yc+.6,0,.95,[.58,.61,.66]);
+  box(-.42,.42,yc-.40,yc+.40,.95,1.0,[.32,.34,.38]);
+  box(-.6,-.30,yc-.6,yc+.6,.95,2.25,s.fault?[.75,.30,.25]:[.92,.70,.18]);
+  const glow=working?[.55,.85,1]:[.2,.22,.25];
+  poly([[-.30,yc-.40,1.35],[-.30,yc+.40,1.35],[-.30,yc+.40,2.05],[-.30,yc-.40,2.05]],glow,.9);
+  box(-.48,-.40,yc+.42,yc+.50,2.25,2.55,[.3,.3,.32]);
+  let lamp=s.fault?((simT*4|0)%2?C.re:sh(C.re,.5)):working?C.gr:C.ye;
+  box(-.50,-.38,yc+.40,yc+.52,2.55,2.70,lamp);
+  if(p) pallet3(0,yc,1.0,p.piece);
+}
+function alim(){
+  const yc=4.3;
+  [-.45,.45].forEach(lx=>{box(lx-.05,lx+.05,yc-.5,yc-.42,0,.62,[.4,.42,.46]);box(lx-.05,lx+.05,yc+.42,yc+.5,0,.62,[.4,.42,.46]);});
+  box(-.75,.55,yc-.48,yc+.48,.62,.78,[.42,.45,.50]);
+  for(let i=0;i<7;i++){const xx=-.65+i*.19; line3([xx,yc-.44,.785],[xx,yc+.44,.785],[.75,.77,.8],2,.8);}
+  if(S.ALIM.pallet) pallet3(0,yc,.80,S.ALIM.pallet.piece);
+  if(S.ALIM.res&&!S.ALIM.pallet){const q=P(0,yc,1);ctx.fillStyle='rgba(245,197,66,.35)';ctx.beginPath();ctx.arc(q[0],q[1],cam.k*.12,0,7);ctx.fill();}
+}
+function descarga(){
+  box(-.55,.55,11.3,13.1,0,.7,[.45,.48,.53]);
+  line3([.55,12.2,.71],[-.55,12.2,.71],[1,1,1],2,.25);
+  for(const s of [S.D1,S.D2]){ if(s.pallet) pallet3(0,s.y,.7,s.pallet.piece);
+    const q=P(.56,s.y,.35); tag(q[0],q[1],'ESP. '+s.label,'rgba(20,22,25,.85)','#cfd3d8',Math.max(9,Math.min(13,cam.k*.11))); }
+}
+function drawGantry(g){
+  const gy=g.v.gy;
+  box(-1.62,1.62,gy-.20,gy+.20,4.22,4.50,g.col);
+  const arms=[...g.arms].sort((a,b)=>g.v[a+'.x']-g.v[b+'.x']);
+  for(const arm of arms){
+    const ax=g.v[arm+'.x'], az=g.v[arm+'.z'], p=g.hold[arm];
+    box(ax-.16,ax+.16,gy-.16,gy+.16,4.0,4.22,[.25,.27,.30]);
+    box(ax-.06,ax+.06,gy-.06,gy+.06,az+.06,4.0,[.70,.72,.76]);
+    if(p) pallet3(ax,gy,az-GH,p.piece);
+    box(ax-.30,ax+.30,gy-.12,gy+.12,az,az+.07,sh(g.col,.8));
+    const jo=p?.24:.30; [-1,1].forEach(s=>box(ax+s*jo-.03,ax+s*jo+.03,gy-.10,gy+.10,az-.22,az,[.85,.87,.9]));
+    const q=P(ax,gy,az+.55), r=Math.max(9,cam.k*.12);
+    ctx.beginPath();ctx.arc(q[0],q[1],r,0,7);ctx.fillStyle='#1d1e21';ctx.fill();ctx.lineWidth=2.5;ctx.strokeStyle=rgba(g.col);ctx.stroke();
+    ctx.fillStyle='#fff';ctx.font=`700 ${r*1.2}px Oswald`;ctx.textAlign='center';ctx.fillText(arm,q[0],q[1]+r*.42);
+  }
+  const q=P(1.62,gy,4.7); tag(q[0],q[1],g.name,rgba(g.col),'#1d1d1f',Math.max(11,cam.k*.16));
+}
+function stationTags(){
+  const items=[['BUFER 1',1.5,3.25,()=>`${B1().filter(s=>s.pallet&&s.pallet.piece==='raw').length} piezas · ${B1().filter(s=>s.pallet).length}/15 pallets`],['ALIMENTACIÓN',4.3,1.4,()=>S.ALIM.pallet&&S.ALIM.pallet.piece==='none'?`CARGANDO ${Math.round(S.ALIM.timer/LOAD*100)}%`:''],
+    ['BANCO 1',6.2,2.95,()=>bkTxt(S.BK1)],['BUFER 2',8.1,3.25,()=>`${B2().filter(s=>s.pallet).length}/10`],['BANCO 2',10.0,2.95,()=>bkTxt(S.BK2)],['DESCARGA',12.2,1.3,()=>`${stats.done} PZAS`]];
+  for(const [n,y,z,f] of items){ const q=P(0,y,z+.35); const ex=f(); const isF=(n==='BANCO 1'&&S.BK1.fault)||(n==='BANCO 2'&&S.BK2.fault);
+    tag(q[0],q[1],n+(ex?' · '+ex:''),isF?'#ee4d47':'rgba(48,52,58,.95)',isF?'#fff':'#fff',Math.max(10,Math.min(15,cam.k*.14))); }
+}
+function bkTxt(s){ if(s.fault) return 'FALLA'; const p=s.pallet; if(!p) return 'VACÍO'; if(p.piece==='raw') return `${Math.round(s.prog*100)}%`; if(p.piece==='done') return 'TERMINÓ'; return 'PALLET VACÍO'; }
+function draw(){
+  ctx.fillStyle='#23262b'; ctx.fillRect(0,0,CW,CH);
+  ctx.strokeStyle='rgba(255,255,255,.035)';ctx.lineWidth=1;for(let x=0;x<CW;x+=24){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,CH);ctx.stroke();}for(let y=0;y<CH;y+=24){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(CW,y);ctx.stroke();}
+  floor();
+  poly([[1.6,-0.6,.01],[1.6,7.4,.01],[-1.6,7.4,.01],[-1.6,-0.6,.01]],C.or,.07);
+  poly([[1.6,8.8,.01],[1.6,13.6,.01],[-1.6,13.6,.01],[-1.6,8.8,.01]],C.bl,.07);
+  poly([[1.6,7.4,.01],[1.6,8.8,.01],[-1.6,8.8,.01],[-1.6,7.4,.01]],lockOwner==='G1'?C.or:lockOwner==='G2'?C.bl:[.6,.6,.6],lockOwner?.18:.06);
+  rail(-1.55,1);
+  const b1=B1(), b2=B2();
+  const items=[];
+  for(let p=0;p<3;p++) items.push([0.5+p,()=>towerCol(b1.filter(s=>s.col===p),0.5+p,0.5,p===0,p===2,-0.05,3.05,'B1')]);
+  items.push([4.3,alim]); items.push([6.2,()=>banco(S.BK1)]);
+  items.push([7.75,()=>towerCol(b2.filter(s=>s.col==='L'),7.75,0.35,true,false,7.4,8.8,'B2')]);
+  items.push([8.45,()=>towerCol(b2.filter(s=>s.col==='R'),8.45,0.35,false,true,7.4,8.8,'B2')]);
+  items.push([10.0,()=>banco(S.BK2)]); items.push([12.2,descarga]);
+  for(const g of [G.G1,G.G2]) items.push([g.v.gy+0.05,()=>drawGantry(g)]);
+  items.sort((a,b)=>a[0]-b[0]).forEach(i=>i[1]());
+  rail(1.55,.5);
+  stationTags();
+  // axes gizmo
+  const ox=CW-62, oy=58, L=34; const sx=ESPEJO?-1:1; const dirs=[['X',-.50*1.2*sx,.40*1.2],['Y',.88*sx,.34],['Z',0,-1.0]];
+  for(const [k,dx,dy] of dirs){const n=Math.hypot(dx,dy),ex=ox+dx/n*L,ey=oy+dy/n*L;ctx.strokeStyle='#fff';ctx.lineWidth=2.5;ctx.beginPath();ctx.moveTo(ox,oy);ctx.lineTo(ex,ey);ctx.stroke();ctx.fillStyle='#f5c542';ctx.font='700 13px Oswald';ctx.textAlign='center';ctx.fillText(k,ox+dx/n*(L+11),oy+dy/n*(L+11)+5);}
+  if(!running){ctx.fillStyle='rgba(0,0,0,.45)';rr(10,10,92,26,6);ctx.fill();ctx.fillStyle='#f5c542';ctx.font='600 14px Oswald';ctx.textAlign='left';ctx.fillText(stepMode?'MODO PASO':'EN PAUSA',20,28);}
+}
+
+</script>
+<script>
+// ui.js — Interfaz: botones, toques en pantalla, panel "Ahora", estadísticas y ciclo principal.
+// Se carga como script clásico (sin módulos) para que funcione abriendo index.html directo.
+
+// ===== UI =====
+let running=true, stepMode=false, speed=1, last=performance.now();
+const $=id=>document.getElementById(id);
+function setPlay(on){running=on; $('play').textContent=on?'⏸ Pausa':'▶ Play'; $('play').classList.toggle('on',on);}
+$('play').onclick=()=>{stepMode=false; setPlay(!running);};
+$('step').onclick=()=>{stepMode=true; running=true; $('play').textContent='▶ Play'; $('play').classList.remove('on');};
+$('reset').onclick=()=>{initScenario($('scn').value);};
+$('scn').onchange=()=>{initScenario($('scn').value);};
+// Tiempos: se aplican al momento, sin reiniciar (el avance del banco va en %, así que se ajusta solo).
+['vY','vX','vZ'].forEach(id=>$(id).addEventListener('input',()=>{leerVelocidad(); log(`Velocidad gantrys: Y ${$('vY').value} % · X ${$('vX').value} % · Z ${$('vZ').value} %.`);}));
+$('sentido').addEventListener('change',()=>{ESPEJO=$('sentido').value==='der'; log(ESPEJO?'Vista: la línea empieza a la derecha (Bufer 1) y termina a la izquierda (Descarga).':'Vista: Bufer 1 a la izquierda, Descarga a la derecha.');});
+$('nB2').addEventListener('change',()=>initScenario($('scn').value));   // cambia el arranque → reinicia
+['tProc','tLoad','tUnload'].forEach(id=>$(id).addEventListener('input',()=>{leerTiempos(); log(`Tiempos: prueba ${PROC} s · carga ${LOAD} s · descarga ${UNLOAD} s.`);}));
+document.querySelectorAll('#spd button').forEach(b=>b.onclick=()=>{speed=+b.dataset.s;document.querySelectorAll('#spd button').forEach(x=>x.classList.toggle('on',x===b));});
+document.querySelectorAll('#cam button').forEach(b=>b.onclick=()=>{camKey=b.dataset.c;document.querySelectorAll('#cam button').forEach(x=>x.classList.toggle('on',x===b));});
+function syncFaultBtns(){$('fb1').classList.toggle('on',S.BK1.fault);$('fb2').classList.toggle('on',S.BK2.fault);}
+function toggleFault(s){s.fault=!s.fault; log(`${s.label.charAt(0)+s.label.slice(1).toLowerCase()} ${s.fault?'<span style="color:#ee4d47">EN FALLA</span>':'reparado'}.`); syncFaultBtns();}
+$('fb1').onclick=()=>toggleFault(S.BK1); $('fb2').onclick=()=>toggleFault(S.BK2);
+cv.addEventListener('click',e=>{
+  const r=cv.getBoundingClientRect(), mx=e.clientX-r.left, my=e.clientY-r.top;
+  let best=null,bd=1e9;
+  for(const s of Object.values(S)){const q=P(s.x,s.y,s.z+0.22);const d=Math.hypot(q[0]-mx,q[1]-my);if(d<bd){bd=d;best=s;}}
+  if(!best||bd>Math.max(22,cam.k*0.38)) return;
+  if(best.kind==='BK'){toggleFault(best);return;}
+  if(best.res||(best.pallet&&best.pallet.claimed)){toast(`${name(best)} está en uso por un gantry`);return;}
+  const order=[null,'none','raw','done']; const cur=best.pallet?best.pallet.piece:null; const nx=order[(order.indexOf(cur)+1)%4];
+  best.pallet=nx?pal(nx):null; best.timer=0;
+  const lbl={null:'vacía',none:'pallet vacío',raw:'pieza sin procesar',done:'pieza procesada'};
+  toast(`${name(best)}: ${lbl[nx]}`); log(`Cambio manual: ${name(best)} → ${lbl[nx]}.`);
+});
+
+function updatePanel(){
+  for(const k of ['G1','G2']){const g=G[k]; $(k.toLowerCase()+'a').textContent=g.txt; $(k.toLowerCase()+'r').textContent='Regla: '+g.rule;}
+  const bad=[1,2,3,4,5].filter(n=>S['B2-'+String(n).padStart(3,'0')].pallet&&S['B2-'+String(n+5).padStart(3,'0')].pallet);
+  const w=$('warn'); if(bad.length){w.style.display='block'; w.textContent='⚠ Regla rota en Bufer 2: '+bad.map(n=>`${String(n).padStart(3,'0')} y ${String(n+5).padStart(3,'0')}`).join(', ')+' ocupadas al mismo tiempo (solo puede haber un pallet por nivel).';} else w.style.display='none';
+  $('palTot').textContent='· total '+__sim.get().pal+' pallets'; $('sDone').textContent=stats.done; $('sLoad').textContent=stats.load; $('sTime').textContent=fmt(simT); $('sRate').textContent=simT>5?(stats.done/simT*60).toFixed(1):'0.0';
+}
+let panelT=0;
+function loop(now){
+  const rdt=Math.min(0.05,(now-last)/1000); last=now;
+  if(running){ let dt=rdt*speed; actionDone=false;
+    const sub=0.02; while(dt>0){const d=Math.min(sub,dt); stepWorld(d); dt-=d; if(stepMode&&actionDone){setPlay(false);break;}} }
+  const t=camTarget(); cam.yc+=(t.yc-cam.yc)*Math.min(1,rdt*5); cam.k+=(t.k-cam.k)*Math.min(1,rdt*5);
+  draw(); panelT-=rdt; if(panelT<=0){updatePanel();panelT=0.15;}
+  requestAnimationFrame(loop);
+}
+initScenario('normal');
+cam=camTarget();
+window.__sim={run:(T)=>{for(let t=0;t<T;t+=0.02)stepWorld(0.02);},get:()=>({done:stats.done,b1:B1().filter(s=>s.pallet).length,b1raw:B1().filter(s=>s.pallet&&s.pallet.piece==='raw').length,pal:Object.values(S).filter(x=>x.pallet).length+[G.G1,G.G2].reduce((n,g)=>n+Object.values(g.hold).filter(x=>x).length,0),alimVac:+(stats.alimVac||0).toFixed(1),desc:[S.D1,S.D2].filter(x=>x.pallet).length,t:simT,g1:G.G1.txt,g2:G.G2.txt,lock:lockOwner}),init:initScenario,dump:()=>Object.values(S).filter(s=>s.pallet||s.res).map(s=>s.id+":"+(s.pallet?s.pallet.piece+(s.pallet.claimed?"*":""):"-")+(s.res?"R":"")).join(" ")+" | hold "+JSON.stringify([G.G1.hold,G.G2.hold])};
+requestAnimationFrame(loop);
+
+</script>
+
+</body>
+</html>
