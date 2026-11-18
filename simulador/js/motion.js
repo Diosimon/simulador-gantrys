@@ -4,29 +4,32 @@
 // ===== motion macros =====
 const name=s=>s.kind==='B1'?`Bufer 1 pos ${s.label} (nivel ${s.level})`:s.kind==='B2'?`Bufer 2 pos ${s.label} (nivel ${s.level})`:s.kind==='DESC'?`Descarga espacio ${s.label}`:s.label.charAt(0)+s.label.slice(1).toLowerCase();
 const mv=(to,txt)=>({t:'mv',to,txt});
-// En L: B en el Bufer 1, y B/C en la columna derecha del Bufer 2. A/D siempre vertical.
-function isL(arm,s){return (arm==='B'||arm==='C')&&(s.kind==='B1'||(s.kind==='B2'&&s.col==='R'));}
+// En los bufers (Bufer 1 y Bufer 2) TODOS los grippers entran en L desde su home; en carga, bancos y descarga, vertical.
+function isL(arm,s){return s.kind==='B1'||s.kind==='B2';}
 function pick(g,arm,s,moveY=true){return (isL(arm,s)?seqL:seqV)(g,arm,s,'grab',moveY);}
 function place(g,arm,s,moveY=true){return (isL(arm,s)?seqL:seqV)(g,arm,s,'rel',moveY);}
+// Secuencia en L: Y a la posición del gripper → Z a pre-toma (casi al nivel) → avanza en X → Z a la posición
+// → toma/deja → sube un poco (pre-toma) → regresa en X → sube en Z.
 function seqL(g,arm,s,op,moveY){
-  const verb=op==='grab'?'toma':'deja';
-  return [mv({gy:s.y},`${g.name} viaja en Y a ${name(s)}`),
-    mv({[arm+'.z']:s.z+GH+(op==='grab'?0.05:0.09)},`${arm} baja en Z al nivel ${s.level}`),
-    mv({[arm+'.x']:s.x},`${arm} entra en X (movimiento en L)`),
-    mv({[arm+'.z']:s.z+GH},`${arm} se asienta`),
+  const verb=op==='grab'?'toma':'deja', pre=s.z+GH+(op==='grab'?0.06:0.10);
+  return [mv({gy:gyFor(arm,s)},moveY?`${g.name} viaja en Y a ${name(s)} (gripper ${arm})`:`${g.name} corre el carro para el gripper ${arm}`),
+    mv({[arm+'.z']:pre},`${arm} baja en Z a pre-toma (nivel ${s.level})`),
+    mv({[arm+'.x']:s.x},`${arm} avanza en X`),
+    mv({[arm+'.z']:s.z+GH},`${arm} baja en Z a la posición`),
     {t:op,arm,s,txt:`${arm} ${verb} el pallet en ${name(s)}`},
-    ...(op==='grab'?[mv({[arm+'.z']:s.z+GH+0.08},`${arm} levanta el pallet`)]:[]),
-    mv({[arm+'.x']:LANE[arm]},`${arm} sale en X`),
+    mv({[arm+'.z']:s.z+GH+(op==='grab'?0.08:0.10)},`${arm} sube un poco (pre-toma)`),
+    mv({[arm+'.x']:LANE[arm]},`${arm} regresa en X`),
     mv({[arm+'.z']:REST},`${arm} sube en Z`)];
 }
 function seqV(g,arm,s,op,moveY){
   const verb=op==='grab'?'toma':'deja';
-  return [...(moveY?[mv({gy:s.y},`${g.name} viaja en Y a ${name(s)}`)]:[]),
+  // siempre ajusta Y: si el otro gripper estaba trabajando aquí, el carro se corre para este (moveY=false = mismo lugar)
+  return [mv({gy:gyFor(arm,s)},moveY?`${g.name} viaja en Y a ${name(s)} (gripper ${arm})`:`${g.name} corre el carro para el gripper ${arm}`),
     mv({[arm+'.x']:s.x},`${arm} se alinea en X`),
     mv({[arm+'.z']:s.z+GH},`${arm} baja en Z (vertical)`),
     {t:op,arm,s,txt:`${arm} ${verb} el pallet en ${name(s)}`},
     mv({[arm+'.z']:REST},`${arm} sube en Z`),
-    mv({[arm+'.x']:LANE[arm]},`${arm} regresa a su carril`)];
+    mv({[arm+'.x']:LANE[arm]},`${arm} regresa a home`)];
 }
 const lock=g=>({t:'lock',txt:`${g.name} espera que se libere el Bufer 2`});
 const unlock=g=>[mv({gy:SAFE[g.name]},`${g.name} sale del Bufer 2`),{t:'unlock'}];
@@ -67,7 +70,7 @@ function stepGantry(g,dt){
     const k=g.dur>0?Math.min(1,g.el/g.dur):1;
     if(a.t==='mv'){const e=k*k*(3-2*k); for(const key in a.to) g.v[key]=g.frm[key]+(a.to[key]-g.frm[key])*e;}
     if((a.t==='grab'||a.t==='rel')&&k>=0.5&&!g.ev){ g.ev=true;
-      if(a.t==='grab'){const p=a.s.pallet; if(!p){log(`<span style="color:#ee4d47">${g.name}: no encontró pallet en ${name(a.s)} (se movió a mano).</span>`); } else {p.claimed=false;g.hold[a.arm]=p;a.s.pallet=null;a.s.res=null;}}
+      if(a.t==='grab'){const p=a.s.pallet; if(!p){log(`<span style="color:#ee4d47">${g.name}: no encontró pallet en ${name(a.s)} (se movió a mano).</span>`); } else {p.claimed=false;g.hold[a.arm]=p;a.s.pallet=null;a.s.res=null; if(window.__onGrab) window.__onGrab(g,a.arm,a.s,p); /* gancho para pruebas */}}
       else {const p=g.hold[a.arm]; g.hold[a.arm]=null; if(p){ if(a.s.pallet){log(`<span style="color:#ee4d47">${g.name}: ${name(a.s)} ocupada, regresa el pallet.</span>`); g.hold[a.arm]=p; } else {a.s.pallet=p;a.s.res=null;a.s.timer=0; if(a.s.kind==='BK'&&p.piece==='raw'){a.s.prog=0;}}}}
     }
     if(g.el>=g.dur-1e-9){ g.cur=null; if(g.dur>0) actionDone=true; }

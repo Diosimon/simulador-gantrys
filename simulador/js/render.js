@@ -16,7 +16,7 @@ function camTarget(){const c=CAMS[camKey]; return {yc:c.yc,k:CW/c.kf};}
 function P(x,y,z){
   let u=(y-cam.yc)*0.88-x*0.50; if(ESPEJO) u=-u;   // espejo: Bufer 1 a la derecha, Descarga a la izquierda
   const v=(y-cam.yc)*0.34+x*0.40-z*0.92;
-  const cy0=CH*0.50+cam.k*1.85;
+  const cy0=CH*0.50+cam.k*2.10;
   return [CW/2+cam.k*u, cy0+cam.k*v];
 }
 const rgba=(c,a=1)=>`rgba(${c[0]*255|0},${c[1]*255|0},${c[2]*255|0},${a})`;
@@ -48,7 +48,13 @@ function floor(){
   line3([1.75,-0.8,0],[1.75,13.8,0],C.ye,2,.6);
 }
 const POSTS=[-0.5,5.05,9.3,13.5];
-function rail(x,a){POSTS.forEach(py=>box(x-.07,x+.07,py-.07,py+.07,0,4,[.75,.77,.80],a)); box(x-.09,x+.09,-0.6,13.6,4,4.22,[.82,.84,.87],a);}
+// Riel único (eje Y): viga gris atrás de las estaciones, sobre postes. Los dos gantrys corren sobre ella.
+const RAIL_X=-2.0, RAIL_Z0=4.05, RAIL_Z1=4.55;
+function rail(){
+  POSTS.forEach(py=>{ box(RAIL_X-.12,RAIL_X+.12,py-.12,py+.12,0,RAIL_Z0,[.50,.52,.56]); box(RAIL_X-.22,RAIL_X+.22,py-.22,py+.22,0,.06,[.40,.42,.45]); });
+  box(RAIL_X-.22,RAIL_X+.22,-0.9,13.9,RAIL_Z0,RAIL_Z1,[.56,.58,.62]);                 // viga
+  box(RAIL_X-.16,RAIL_X+.16,-0.9,13.9,RAIL_Z1,RAIL_Z1+.05,[.78,.80,.83]);             // guía lineal arriba
+}
 function towerCol(slots,yc,half,first,last,y0,y1,kind){
   const zt=2.95, x0=-.52,x1=.52;
   if(first) box(x0-.03,x0+.03,y0-.03,y0+.03,0,zt,C.frame);
@@ -90,22 +96,41 @@ function descarga(){
   for(const s of [S.D1,S.D2]){ if(s.pallet) pallet3(0,s.y,.7,s.pallet.piece);
     const q=P(.56,s.y,.35); tag(q[0],q[1],'ESP. '+s.label,'rgba(20,22,25,.85)','#cfd3d8',Math.max(9,Math.min(13,cam.k*.11))); }
 }
+// Gantry lineal: carro sobre el riel (eje Y) + brazo en voladizo (eje X) + dos columnas verticales (eje Z), una por gripper.
+// Gantry lineal: riel principal (fijo) → carro del eje Y (lo comparten los 2 grippers) → encima, un eje X por gripper:
+// una viga que SALE hacia el frente deslizándose sobre el carro → en su punta, la columna del eje Z con el gripper.
+const XB_L=3.0, XB_Z0=RAIL_Z1+.32, XB_Z1=XB_Z0+.20, MAST_TOP=XB_Z1+.45, CAR_Z1=XB_Z0;
 function drawGantry(g){
-  const gy=g.v.gy;
-  box(-1.62,1.62,gy-.20,gy+.20,4.22,4.50,g.col);
-  const arms=[...g.arms].sort((a,b)=>g.v[a+'.x']-g.v[b+'.x']);
+  const gy=g.v.gy, col=g.col, dark=[.13,.13,.15];
+  // eje Y: carro sobre el riel principal, con su motor y la cadena portacables
+  box(RAIL_X-.34,RAIL_X+.34,gy-.48,gy+.48,RAIL_Z1+.05,CAR_Z1,col);
+  box(RAIL_X-.30,RAIL_X-.08,gy-.44,gy-.26,CAR_Z1,CAR_Z1+.30,dark);
+  box(RAIL_X-.10,RAIL_X+.06,gy-1.0,gy-.48,RAIL_Z1+.10,RAIL_Z1+.20,dark);
+  // un eje X por gripper (el de atrás A/D a un lado, el de adelante B/C al otro), en orden de profundidad
+  const yo=YOFF;
+  const arms=[...g.arms].sort((a,b)=>yo[a]-yo[b]);
   for(const arm of arms){
-    const ax=g.v[arm+'.x'], az=g.v[arm+'.z'], p=g.hold[arm];
-    box(ax-.16,ax+.16,gy-.16,gy+.16,4.0,4.22,[.25,.27,.30]);
-    box(ax-.06,ax+.06,gy-.06,gy+.06,az+.06,4.0,[.70,.72,.76]);
-    if(p) pallet3(ax,gy,az-GH,p.piece);
-    box(ax-.30,ax+.30,gy-.12,gy+.12,az,az+.07,sh(g.col,.8));
-    const jo=p?.24:.30; [-1,1].forEach(s=>box(ax+s*jo-.03,ax+s*jo+.03,gy-.10,gy+.10,az-.22,az,[.85,.87,.9]));
-    const q=P(ax,gy,az+.55), r=Math.max(9,cam.k*.12);
+    const ax=g.v[arm+'.x'], az=g.v[arm+'.z'], p=g.hold[arm], yb=gy+yo[arm];
+    // viga del eje X: se desliza sobre el carro y sale hasta la posición del gripper
+    box(ax-.24-XB_L,ax-.14,yb-.11,yb+.11,XB_Z0,XB_Z1,sh(col,.95));
+    box(ax-.24-XB_L,ax-.14,yb-.07,yb+.07,XB_Z1,XB_Z1+.03,[.80,.82,.85]);
+    // eje Z en la punta de la viga: columna con cadena portacables, motor arriba y vástago que baja al gripper
+    const mx=ax-.24;   // la columna queda atrás; el gripper sale de ella hacia el frente
+    box(mx-.10,mx+.10,yb-.13,yb+.13,XB_Z0-.10,XB_Z1,sh(col,.72));   // unión X–Z
+    box(mx-.045,mx+.045,yb-.045,yb+.045,az+.10,XB_Z0-.80,[.82,.84,.87]);
+    box(mx-.08,mx+.08,yb-.08,yb+.08,XB_Z0-.80,MAST_TOP-.22,col);
+    box(mx-.035,mx+.035,yb+.08,yb+.15,XB_Z0-.65,MAST_TOP-.30,dark);
+    box(mx-.10,mx+.10,yb-.10,yb+.10,MAST_TOP-.22,MAST_TOP,dark);
+    // gripper volteado hacia enfrente: placa que sale de la columna, dedos a los lados del pallet
+    if(p) pallet3(ax,yb,az-GH,p.piece);
+    box(mx-.08,ax+.36,yb-.10,yb+.10,az+.07,az+.14,sh(g.col,.8));
+    box(ax-.30,ax+.30,yb-.34,yb+.34,az,az+.07,sh(g.col,.65));
+    const jo=p?.33:.38; [-1,1].forEach(s=>box(ax-.24,ax+.24,yb+s*jo-.03,yb+s*jo+.03,az-.22,az,[.85,.87,.9]));
+    const q=P(mx,yb,MAST_TOP+.32), r=Math.max(9,cam.k*.12);
     ctx.beginPath();ctx.arc(q[0],q[1],r,0,7);ctx.fillStyle='#1d1e21';ctx.fill();ctx.lineWidth=2.5;ctx.strokeStyle=rgba(g.col);ctx.stroke();
     ctx.fillStyle='#fff';ctx.font=`700 ${r*1.2}px Oswald`;ctx.textAlign='center';ctx.fillText(arm,q[0],q[1]+r*.42);
   }
-  const q=P(1.62,gy,4.7); tag(q[0],q[1],g.name,rgba(g.col),'#1d1d1f',Math.max(11,cam.k*.16));
+  const q=P(RAIL_X,gy,CAR_Z1+.75); tag(q[0],q[1],g.name,rgba(g.col),'#1d1d1f',Math.max(11,cam.k*.16));
 }
 function stationTags(){
   const items=[['BUFER 1',1.5,3.25,()=>`${B1().filter(s=>s.pallet&&s.pallet.piece==='raw').length} piezas · ${B1().filter(s=>s.pallet).length}/15 pallets`],['ALIMENTACIÓN',4.3,1.4,()=>S.ALIM.pallet&&S.ALIM.pallet.piece==='none'?`CARGANDO ${Math.round(S.ALIM.timer/LOAD*100)}%`:''],
@@ -121,7 +146,7 @@ function draw(){
   poly([[1.6,-0.6,.01],[1.6,7.4,.01],[-1.6,7.4,.01],[-1.6,-0.6,.01]],C.or,.07);
   poly([[1.6,8.8,.01],[1.6,13.6,.01],[-1.6,13.6,.01],[-1.6,8.8,.01]],C.bl,.07);
   poly([[1.6,7.4,.01],[1.6,8.8,.01],[-1.6,8.8,.01],[-1.6,7.4,.01]],lockOwner==='G1'?C.or:lockOwner==='G2'?C.bl:[.6,.6,.6],lockOwner?.18:.06);
-  rail(-1.55,1);
+  rail();
   const b1=B1(), b2=B2();
   const items=[];
   for(let p=0;p<3;p++) items.push([0.5+p,()=>towerCol(b1.filter(s=>s.col===p),0.5+p,0.5,p===0,p===2,-0.05,3.05,'B1')]);
@@ -131,7 +156,6 @@ function draw(){
   items.push([10.0,()=>banco(S.BK2)]); items.push([12.2,descarga]);
   for(const g of [G.G1,G.G2]) items.push([g.v.gy+0.05,()=>drawGantry(g)]);
   items.sort((a,b)=>a[0]-b[0]).forEach(i=>i[1]());
-  rail(1.55,.5);
   stationTags();
   // axes gizmo
   const ox=CW-62, oy=58, L=34; const sx=ESPEJO?-1:1; const dirs=[['X',-.50*1.2*sx,.40*1.2],['Y',.88*sx,.34],['Z',0,-1.0]];

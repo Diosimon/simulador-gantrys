@@ -82,8 +82,9 @@
  <li><b>G1</b> (A, B): Bufer 1, Alimentación, Banco 1 y Bufer 2. <b>G2</b> (C, D): Bufer 2, Banco 2 y Descarga. Solo un gantry a la vez dentro del Bufer 2.</li>
  <li><b>Línea en home (25 pallets):</b> Bufer 1 lleno (15), 4 en el Bufer 2 (uno por nivel 1–4), alimentación con pieza, 1 en cada banco, 1 en descarga y 1 en un gripper de cada gantry.</li>
  <li><b>Todo es intercambio:</b> en cada lugar un gripper saca y el otro deja.</li>
- <li><b>Bufer 1</b> (5 niveles × 3, siempre lleno): entran A (vertical) y B (en L); uno saca y el otro deja en la misma posición.</li>
- <li><b>Bufer 2</b> (5 niveles × 2): columna izquierda 001–005 → A y D en vertical; columna derecha 006–010 → B y C en L. Un solo pallet por nivel.</li>
+ <li><b>Bufer 1</b> (5 niveles × 3, siempre lleno): entran A y B; uno saca y el otro deja en la misma posición.</li>
+ <li><b>Bufer 2</b> (5 niveles × 2): columna izquierda 001–005 → A y D; columna derecha 006–010 → B y C. Un solo pallet por nivel.</li>
+ <li><b>Movimiento en los bufers (en L):</b> Y a la posición → baja en Z a pre-toma → avanza en X → baja a la posición → toma/deja → sube un poco → regresa en X → sube en Z. En carga, bancos y descarga baja vertical.</li>
  <li><b>Bufer 2 niveles 1–4:</b> G1 deja 2 piezas nuevas listas para G2 y se lleva vacíos (intercambio en el mismo nivel). Aquí también se hace el <b>cambio de gripper</b>.</li>
  <li><b>Bufer 2 nivel 5:</b> solo traspaleo: G1 deja la pieza probada y G2 la lleva a descarga.</li>
  <li><b>G1:</b> Banco 1 terminó → cambio rápido (un brazo trae la nueva, el otro saca la probada al nivel 5 y aprovecha para traer un vacío) → intercambio en alimentación (toma pieza nueva, deja el vacío) → la pieza va al Banco 1, al Bufer 2 o al Bufer 1.</li>

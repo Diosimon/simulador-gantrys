@@ -21,5 +21,11 @@ let ESPEJO=false;   // true = la línea empieza a la derecha (Bufer 1) y termina
 let B2_STOCK=2;   // piezas nuevas que G1 deja listas en el Bufer 2 para el Banco 2   // segundos; se cambian desde la barra TIEMPOS de la pantalla
 const REST=3.25, GH=0.47;
 const LV=n=>0.30+(5-n)*0.56;
-const LANE={A:-1.05,B:1.05,C:1.05,D:-1.05};
+// HOME en X: los 4 grippers retraídos (vigas X metidas sobre el carro). Desde ahí entran en L a los bufers.
+const HOME_X=-1.05;
+const LANE={A:HOME_X,B:HOME_X,C:HOME_X,D:HOME_X};
+// Cada gripper va en su propia viga X, separada en Y: el carro del eje Y se corre para poner el gripper que trabaja
+// sobre la posición (paso real "mover carro para el otro brazo"). A/D de un lado, B/C del otro.
+const YOFF={A:-.35,D:-.35,B:.35,C:.35};
+const gyFor=(arm,s)=>s.y-YOFF[arm];
 const SAFE={G1:6.2,G2:10.0};
